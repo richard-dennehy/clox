@@ -2,31 +2,42 @@
 #include "assert_macro.h"
 
 int testWriteChunk() {
-    int err_code = 0;
+    int err_code = TEST_SUCCEEDED;
     Chunk chunk;
     initChunk(&chunk);
 
-    assertEqual(chunk.count, 0);
-    assertEqual(chunk.capacity, 0);
-    assertEqual(chunk.lines, NULL);
-    assertEqual(chunk.code, NULL);
+    checkEqual(chunk.count, 0);
+    checkEqual(chunk.capacity, 0);
+    checkEqual(chunk.firstLine, NULL);
+    checkEqual(chunk.code, NULL);
 
     writeChunk(&chunk, OP_RETURN, 0);
 
-    assertEqual(chunk.count, 1);
-    assertEqual(chunk.capacity, 8);
-    // TODO actually test this, probably
-    assertNotEqual(chunk.lines, NULL);
-    assertNotEqual(chunk.code, NULL);
+    checkEqual(chunk.count, 1);
+    checkEqual(chunk.capacity, 8);
+    assertNotNull(chunk.code);
+    checkEqual(chunk.code[0], OP_RETURN);
 
-    for (int i = 0; i < 8; ++i) {
+    assertNotNull(chunk.firstLine);
+    checkEqual(chunk.firstLine[0].lineNumber, 0);
+    checkEqual(chunk.firstLine[0].instructions, 1);
+    checkEqual(chunk.firstLine[0].next, NULL);
+
+    for (int i = 1; i < 9; ++i) {
         writeChunk(&chunk, OP_RETURN, i);
     }
 
-    assertEqual(chunk.count, 9);
-    assertEqual(chunk.capacity, 16);
-    assertNotEqual(chunk.lines, NULL);
-    assertNotEqual(chunk.code, NULL);
+    checkEqual(chunk.count, 9);
+    checkEqual(chunk.capacity, 16);
+    assertNotNull(chunk.code);
+
+    uint32_t length = 0;
+    for (Line* nextLine = chunk.firstLine; nextLine; nextLine = nextLine->next) {
+        checkEqual(nextLine->lineNumber, length);
+        checkEqual(nextLine->instructions, 1);
+        length++;
+    }
+    checkEqual(length, 9);
 
     freeChunk(&chunk);
     return err_code;

@@ -1,7 +1,10 @@
 cmake_minimum_required(VERSION 3.23 FATAL_ERROR)
 
 add_executable(ctest_write_chunk test_write_chunk.c)
+add_executable(ctest_line_counter test_line_counter.c)
 
 target_link_libraries(ctest_write_chunk PRIVATE clox_lib)
+target_link_libraries(ctest_line_counter PRIVATE clox_lib)
 
 add_test(ctest_write_chunk ctest_write_chunk)
+add_test(ctest_line_counter ctest_line_counter)
