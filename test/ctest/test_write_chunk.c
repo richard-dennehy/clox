@@ -1,5 +1,5 @@
 #include "chunk.h"
-#include "assert_macro.h"
+#include "test_suite.h"
 
 int testWriteChunk() {
     int err_code = TEST_SUCCEEDED;
@@ -40,9 +40,43 @@ int testWriteChunk() {
     checkEqual(length, 9);
 
     freeChunk(&chunk);
+
+    return err_code;
+}
+
+int testWriteConstant() {
+    int err_code = TEST_SUCCEEDED;
+
+    Chunk chunk;
+    initChunk(&chunk);
+
+    writeConstant(&chunk, 123, 1);
+    checkEqual(chunk.count, 2);
+    assertNotNull(chunk.code);
+    checkEqual(chunk.code[0], OP_CONSTANT);
+    checkEqual(chunk.code[1], 0);
+
+    checkEqual(chunk.constants.count, 1);
+    assertNotNull(chunk.constants.values);
+    checkEqual(chunk.constants.values[0], 123);
+
+    for (int i = 0; i < 256; i++) {
+        writeConstant(&chunk, i * 2, i + 1);
+    }
+
+    checkEqual(chunk.constants.count, 257);
+    checkEqual(chunk.count, 516);
+    assertNotNull(chunk.code);
+    checkEqual(chunk.code[512], OP_CONSTANT_LONG);
+    checkEqual(chunk.code[513], 0);
+    checkEqual(chunk.code[514], 1);
+    checkEqual(chunk.code[515], 0);
+
+    freeChunk(&chunk);
+
     return err_code;
 }
 
 int main() {
-    return testWriteChunk();
+    return testWriteChunk() | testWriteConstant();
 }

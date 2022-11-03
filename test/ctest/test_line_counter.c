@@ -1,5 +1,5 @@
 #include "chunk.h"
-#include "assert_macro.h"
+#include "test_suite.h"
 
 int testLineCounter() {
     int err_code = TEST_SUCCEEDED;

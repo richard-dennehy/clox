@@ -1,5 +1,5 @@
-#ifndef CLOX_ASSERT_MACRO_H
-#define CLOX_ASSERT_MACRO_H
+#ifndef CLOX_TEST_SUITE_H
+#define CLOX_TEST_SUITE_H
 
 #include "stdio.h"
 
@@ -10,7 +10,7 @@
 #define checkEqual(LHS, RHS) \
     do {                 \
         if ((LHS) != (RHS)) { \
-            printf("Assertion failed; %s != %s @ line [%d] file [%s]", #LHS, #RHS, __LINE__, __FILE__); \
+            fprintf(stderr, "Assertion failed; %s != %s @ line [%d] file [%s]", #LHS, #RHS, __LINE__, __FILE__); \
             err_code = TEST_FAILED;             \
         }                 \
     } while(0)
@@ -19,7 +19,7 @@
 #define checkNotEqual(LHS, RHS) \
     do {                 \
         if ((LHS) == (RHS)) { \
-            printf("Assertion failed; %s == %s @ line [%d] file [%s]", #LHS, #RHS, __LINE__, __FILE__); \
+            fprintf(stderr, "Assertion failed; %s == %s @ line [%d] file [%s]", #LHS, #RHS, __LINE__, __FILE__); \
             err_code = TEST_FAILED;             \
         }                 \
     } while(0)
@@ -27,9 +27,9 @@
 #define assertNotNull(ptr) \
     do {                   \
         if (!(ptr)) {      \
-            printf("Assertion failed; pointer %s was null @ line [%d] file [%s]", #ptr, __LINE__, __FILE__); \
+            fprintf(stderr, "Assertion failed; pointer %s was null @ line [%d] file [%s]", #ptr, __LINE__, __FILE__); \
             return TEST_FAILED;      \
         }                  \
     } while(0)
 
-#endif //CLOX_ASSERT_MACRO_H
+#endif //CLOX_TEST_SUITE_H

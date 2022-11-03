@@ -21,34 +21,38 @@ void freeChunk(Chunk* chunk) {
     initChunk(chunk);
 }
 
+static Line* newLine(uint32_t lineNumber) {
+    Line* line = NULL;
+    line = reallocate(line, 0, sizeof(Line));
+    assert(line);
+    line->lineNumber = lineNumber;
+    line->instructions = 0;
+    line->next = NULL;
+
+    return line;
+}
+
 static void writeLine(Chunk* chunk, uint32_t line) {
-    Line** closest = &chunk->firstLine;
-    while (*closest && (*closest)->next) {
-        if ((*closest)->lineNumber == line) break;
-        closest = &(*closest)->next;
+    if (!chunk->firstLine) {
+        chunk->firstLine = newLine(line);
     }
 
-    if (!*closest) {
-        *closest = reallocate(*closest, 0, sizeof(Line));
-        assert(*closest);
-        (*closest)->lineNumber = line;
-        (*closest)->instructions = 0;
-        (*closest)->next = NULL;
+    Line* closest = chunk->firstLine;
+    while (closest && closest->next) {
+        if (closest->lineNumber == line) break;
+        closest = closest->next;
     }
+    assert(closest);
 
-    if ((*closest)->lineNumber == line) {
-        (*closest)->instructions += 1;
+    if (closest->lineNumber == line) {
+        closest->instructions += 1;
     } else {
-        Line* nextLine = NULL;
-        nextLine = reallocate(nextLine, 0, sizeof(Line));
-        assert(nextLine);
-        nextLine->lineNumber = line;
-        nextLine->instructions = 1;
-        nextLine->next = NULL;
+        Line* nextLine = newLine(line);
+        nextLine->instructions += 1;
 
         // assuming that line numbers never decrease, otherwise this will overwrite existing links
-        assert(!(*closest)->next);
-        (*closest)->next = nextLine;
+        assert(!closest->next);
+        closest->next = nextLine;
     }
 }
 
@@ -62,6 +66,23 @@ void writeChunk(Chunk* chunk, uint8_t byte, uint32_t line) {
     writeLine(chunk, line);
 
     chunk->count++;
+}
+
+void writeConstant(Chunk* chunk, Value value, uint32_t line) {
+    writeValue(&chunk->constants, value);
+    uint32_t index = chunk->constants.count - 1;
+
+    if (index <= 255) {
+        writeChunk(chunk, OP_CONSTANT, line);
+        writeChunk(chunk, index, line);
+    } else {
+        assert(index < 1 << 24);
+
+        writeChunk(chunk, OP_CONSTANT_LONG, line);
+        writeChunk(chunk, (uint8_t) (index >> 16), line);
+        writeChunk(chunk, (uint8_t) (index >> 8), line);
+        writeChunk(chunk, (uint8_t) (index >> 0), line);
+    }
 }
 
 uint32_t getLine(Chunk* chunk, uint32_t instructionIndex) {
@@ -78,9 +99,3 @@ uint32_t getLine(Chunk* chunk, uint32_t instructionIndex) {
     assert(line != UINT32_MAX);
     return line;
 }
-
-int32_t addConstant(Chunk* chunk, Value value) {
-    writeValue(&chunk->constants, value);
-    return chunk->constants.count - 1;
-}
-
