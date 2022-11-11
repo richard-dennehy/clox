@@ -7,19 +7,34 @@
 #define TEST_SUCCEEDED 0
 
 // will make the test fail if LHS != RHS, but continues running the test
-#define checkEqual(LHS, RHS) \
+#define checkIntsEqual(LHS, RHS) \
     do {                 \
         if ((LHS) != (RHS)) { \
-            fprintf(stderr, "Assertion failed; %s != %s @ line [%d] file [%s]", #LHS, #RHS, __LINE__, __FILE__); \
+            fprintf(stderr, "Assertion failed; %s (%d) != %s (%d) @ line [%d] file [%s]", #LHS, (LHS), #RHS, (RHS), __LINE__, __FILE__); \
             err_code = TEST_FAILED;             \
         }                 \
     } while(0)
 
-// will make the test fail if LHS == RHS, but continues running the test
-#define checkNotEqual(LHS, RHS) \
+#define checkLongsEqual(LHS, RHS) \
     do {                 \
-        if ((LHS) == (RHS)) { \
-            fprintf(stderr, "Assertion failed; %s == %s @ line [%d] file [%s]", #LHS, #RHS, __LINE__, __FILE__); \
+        if ((LHS) != (RHS)) { \
+            fprintf(stderr, "Assertion failed; %s (%zu) != %s (%zu) @ line [%d] file [%s]", #LHS, (LHS), #RHS, (unsigned long)(RHS), __LINE__, __FILE__); \
+            err_code = TEST_FAILED;             \
+        }                 \
+    } while(0)
+
+#define checkPtrsEqual(LHS, RHS) \
+    do {                 \
+        if ((LHS) != (RHS)) { \
+            fprintf(stderr, "Assertion failed; %s (%p) != %s (%p) @ line [%d] file [%s]", #LHS, (LHS), #RHS, (RHS), __LINE__, __FILE__); \
+            err_code = TEST_FAILED;             \
+        }                 \
+    } while(0)
+
+#define checkFloatsEqual(LHS, RHS) \
+    do {                 \
+        if ((LHS) != (RHS)) { \
+            fprintf(stderr, "Assertion failed; %s (%g) != %s (%g) @ line [%d] file [%s]", #LHS, (LHS), #RHS, (double)(RHS), __LINE__, __FILE__); \
             err_code = TEST_FAILED;             \
         }                 \
     } while(0)

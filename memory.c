@@ -7,6 +7,7 @@ void initMemory(FreeList* freeList, size_t size) {
     assert(allocation && size >= sizeof(Block));
 
     Block* block = (Block*) allocation;
+    // TODO this loses 16 bytes of capacity for probably no reason since the size of the block gets reclaimed when the pointer is handed out
     block->blockSize = size - sizeof(Block);
     block->next = NULL;
 
@@ -21,6 +22,8 @@ void freeMemory(FreeList* freeList) {
 }
 
 void* newReallocate(FreeList* freeList, void* pointer, size_t oldSize, size_t newSize) {
+    void* result = NULL;
+
     Block** prevPtr = &freeList->first;
     for (Block* block = freeList->first; block; block = block->next) {
         if (block->blockSize > newSize) {
@@ -28,15 +31,29 @@ void* newReallocate(FreeList* freeList, void* pointer, size_t oldSize, size_t ne
             newBlock->blockSize = block->blockSize - newSize;
             newBlock->next = block->next;
             *prevPtr = newBlock;
-            return (void*) block;
+            result = (void*) block;
+            break;
         }
         if (block->blockSize == newSize) {
             *prevPtr = block->next;
-            return (void*) block;
+            result = (void*) block;
+            break;
         }
         prevPtr = &block->next;
     }
-    return NULL;
+
+    if (pointer && oldSize) {
+        Block* last = freeList->first;
+        while(last->next) {
+            last = last->next;
+        }
+        Block* newBlock = (Block*) pointer;
+        newBlock->next = NULL;
+        newBlock->blockSize = oldSize;
+        last->next = newBlock;
+    }
+
+    return result;
 }
 
 void* reallocate(void* pointer, size_t oldSize, size_t newSize) {

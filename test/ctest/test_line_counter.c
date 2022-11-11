@@ -14,24 +14,24 @@ int testLineCounter() {
         writeChunk(&chunk, OP_RETURN, 99);
     }
 
-    checkEqual(chunk.count, 106);
-    checkEqual(chunk.capacity, 128);
+    checkIntsEqual(chunk.count, 106);
+    checkIntsEqual(chunk.capacity, 128);
 
     Line* nextLine = chunk.firstLine;
     assertNotNull(nextLine);
-    checkEqual(nextLine->lineNumber, 10);
-    checkEqual(nextLine->instructions, 5);
+    checkIntsEqual(nextLine->lineNumber, 10);
+    checkIntsEqual(nextLine->instructions, 5);
 
     nextLine = nextLine->next;
     assertNotNull(nextLine);
-    checkEqual(nextLine->lineNumber, 11);
-    checkEqual(nextLine->instructions, 1);
+    checkIntsEqual(nextLine->lineNumber, 11);
+    checkIntsEqual(nextLine->instructions, 1);
 
     nextLine = nextLine->next;
     assertNotNull(nextLine);
-    checkEqual(nextLine->lineNumber, 99);
-    checkEqual(nextLine->instructions, 100);
-    checkEqual(nextLine->next, NULL);
+    checkIntsEqual(nextLine->lineNumber, 99);
+    checkIntsEqual(nextLine->instructions, 100);
+    checkPtrsEqual(nextLine->next, NULL);
 
     freeChunk(&chunk);
 
