@@ -7,8 +7,7 @@ void initMemory(FreeList* freeList, size_t size) {
     assert(allocation && size >= sizeof(Block));
 
     Block* block = (Block*) allocation;
-    // TODO this loses 16 bytes of capacity for probably no reason since the size of the block gets reclaimed when the pointer is handed out
-    block->blockSize = size - sizeof(Block);
+    block->blockSize = size;
     block->next = NULL;
 
     freeList->first = block;

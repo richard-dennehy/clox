@@ -4,18 +4,18 @@
 int testAllocation() {
     int err_code = TEST_SUCCEEDED;
     FreeList freeList;
-    // zero case: create allocator too small to actually store anything
+    // minimum sized free list (needs to be big enough to store at least one block metadata)
     initMemory(&freeList, sizeof(Block));
     assertNotNull(freeList.first);
     checkPtrsEqual(freeList.first->next, NULL);
-    checkLongsEqual(freeList.first->blockSize, 0);
+    checkLongsEqual(freeList.first->blockSize, 16);
     freeMemory(&freeList);
 
     // create allocator with some actual capacity
     initMemory(&freeList, 1024 * 1024);
     assertNotNull(freeList.first);
     checkPtrsEqual(freeList.first->next, NULL);
-    checkLongsEqual(freeList.first->blockSize, 1024 * 1024 - sizeof(Block));
+    checkLongsEqual(freeList.first->blockSize, 1024 * 1024);
 
     // test smallest non-zero allocation
     size_t start = (size_t) freeList.first;
@@ -25,7 +25,7 @@ int testAllocation() {
     assertNotNull(freeList.first);
     checkLongsEqual((size_t) freeList.first, start + 1);
     checkPtrsEqual(freeList.first->next, NULL);
-    checkLongsEqual(freeList.first->blockSize, 1024 * 1024 - sizeof(Block) - 1);
+    checkLongsEqual(freeList.first->blockSize, 1024 * 1024 - 1);
 
     // test larger allocation from same list
     ptr = newReallocate(&freeList, NULL, 0, 1024);
@@ -33,17 +33,17 @@ int testAllocation() {
     checkPtrsEqual(ptr, (void*) start + 1);
     assertNotNull(freeList.first);
     checkLongsEqual((size_t) freeList.first, start + 1025);
-    checkLongsEqual(freeList.first->blockSize, 1024 * 1024 - sizeof(Block) - 1025);
+    checkLongsEqual(freeList.first->blockSize, 1024 * 1024 - 1025);
 
     // trying too allocate too much
     ptr = newReallocate(&freeList, NULL, 0, 1024 * 1024);
     checkPtrsEqual(ptr, NULL);
     assertNotNull(freeList.first);
     checkLongsEqual((size_t) freeList.first, start + 1025);
-    checkLongsEqual(freeList.first->blockSize, 1024 * 1024 - sizeof(Block) - 1025);
+    checkLongsEqual(freeList.first->blockSize, 1024 * 1024 - 1025);
 
     // exhausting the allocator capacity
-    ptr = newReallocate(&freeList, NULL, 0, 1024 * 1024 - sizeof(Block) - 1025);
+    ptr = newReallocate(&freeList, NULL, 0, 1024 * 1024 - 1025);
     assertNotNull(ptr);
     checkPtrsEqual(ptr, (void*) start + 1025);
     checkPtrsEqual(freeList.first, NULL);
@@ -69,7 +69,7 @@ int testReallocation() {
     checkPtrsEqual(ptr, freeList.ptr_);
     assertNotNull(freeList.first);
     checkPtrsEqual(freeList.first->next, NULL);
-    checkLongsEqual(freeList.first->blockSize, 1024 - 64 - sizeof(Block));
+    checkLongsEqual(freeList.first->blockSize, 1024 - 64);
 
     // allocate new block and return old block to free list
     ptr = newReallocate(&freeList, ptr, 64, 128);
@@ -77,13 +77,13 @@ int testReallocation() {
     checkPtrsEqual(ptr, freeList.ptr_ + 64);
     assertNotNull(freeList.first);
     assertNotNull(freeList.first->next);
-    checkLongsEqual(freeList.first->blockSize, 1024 - 192 - sizeof(Block));
+    checkLongsEqual(freeList.first->blockSize, 1024 - 192);
     checkPtrsEqual((void*) freeList.first->next, freeList.ptr_);
     checkPtrsEqual(freeList.first->next->next, NULL);
     checkLongsEqual(freeList.first->next->blockSize, 64);
     
     // another allocation, to consume most of the remaining capacity
-    size_t allocationSize = 1024 - 224 - sizeof(Block);
+    size_t allocationSize = 1024 - 224;
     ptr = newReallocate(&freeList, NULL, 0, allocationSize);
     assertNotNull(ptr);
     checkPtrsEqual(ptr, freeList.ptr_ + 192);
