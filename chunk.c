@@ -1,6 +1,5 @@
 #include <assert.h>
 #include "chunk.h"
-#include "memory.h"
 
 void initChunk(Chunk* chunk) {
     chunk->count = 0;
@@ -10,20 +9,20 @@ void initChunk(Chunk* chunk) {
     initValueArray(&chunk->constants);
 }
 
-void freeChunk(Chunk* chunk) {
+void freeChunk(FreeList* freeList, Chunk* chunk) {
     FREE_ARRAY(uint8_t, chunk->code, chunk->count);
     for (Line* line = chunk->firstLine; line;) {
         Line* next = line->next;
-        reallocate(line, sizeof(Line), 0);
+        reallocate(freeList, line, sizeof(Line), 0);
         line = next;
     }
-    freeValueArray(&chunk->constants);
+    freeValueArray(freeList, &chunk->constants);
     initChunk(chunk);
 }
 
-static Line* newLine(uint32_t lineNumber) {
+static Line* newLine(FreeList* freeList, uint32_t lineNumber) {
     Line* line = NULL;
-    line = reallocate(line, 0, sizeof(Line));
+    line = reallocate(freeList, line, 0, sizeof(Line));
     assert(line);
     line->lineNumber = lineNumber;
     line->instructions = 0;
@@ -32,9 +31,9 @@ static Line* newLine(uint32_t lineNumber) {
     return line;
 }
 
-static void writeLine(Chunk* chunk, uint32_t line) {
+static void writeLine(FreeList* freeList, Chunk* chunk, uint32_t line) {
     if (!chunk->firstLine) {
-        chunk->firstLine = newLine(line);
+        chunk->firstLine = newLine(freeList, line);
     }
 
     Line* closest = chunk->firstLine;
@@ -47,7 +46,7 @@ static void writeLine(Chunk* chunk, uint32_t line) {
     if (closest->lineNumber == line) {
         closest->instructions += 1;
     } else {
-        Line* nextLine = newLine(line);
+        Line* nextLine = newLine(freeList, line);
         nextLine->instructions += 1;
 
         // assuming that line numbers never decrease, otherwise this will overwrite existing links
@@ -56,32 +55,32 @@ static void writeLine(Chunk* chunk, uint32_t line) {
     }
 }
 
-void writeChunk(Chunk* chunk, uint8_t byte, uint32_t line) {
+void writeChunk(FreeList* freeList, Chunk* chunk, uint8_t byte, uint32_t line) {
     if (chunk->capacity < chunk->count + 1) {
         int32_t oldCapacity = chunk->capacity;
         chunk->capacity = GROW_CAPACITY(oldCapacity);
         chunk->code = GROW_ARRAY(uint8_t, chunk->code, oldCapacity, chunk->capacity);
     }
     chunk->code[chunk->count] = byte;
-    writeLine(chunk, line);
+    writeLine(freeList, chunk, line);
 
     chunk->count++;
 }
 
-void writeConstant(Chunk* chunk, Value value, uint32_t line) {
-    writeValue(&chunk->constants, value);
+void writeConstant(FreeList* freeList, Chunk* chunk, Value value, uint32_t line) {
+    writeValue(freeList, &chunk->constants, value);
     uint32_t index = chunk->constants.count - 1;
 
     if (index <= 255) {
-        writeChunk(chunk, OP_CONSTANT, line);
-        writeChunk(chunk, index, line);
+        writeChunk(freeList, chunk, OP_CONSTANT, line);
+        writeChunk(freeList, chunk, index, line);
     } else {
         assert(index < 1 << 24);
 
-        writeChunk(chunk, OP_CONSTANT_LONG, line);
-        writeChunk(chunk, (uint8_t) (index >> 16), line);
-        writeChunk(chunk, (uint8_t) (index >> 8), line);
-        writeChunk(chunk, (uint8_t) (index >> 0), line);
+        writeChunk(freeList, chunk, OP_CONSTANT_LONG, line);
+        writeChunk(freeList, chunk, (uint8_t) (index >> 16), line);
+        writeChunk(freeList, chunk, (uint8_t) (index >> 8), line);
+        writeChunk(freeList, chunk, (uint8_t) (index >> 0), line);
     }
 }
 

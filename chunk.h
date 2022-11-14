@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "value.h"
+#include "memory.h"
 
 typedef enum {
     OP_CONSTANT,
@@ -25,9 +26,9 @@ typedef struct {
 } Chunk;
 
 void initChunk(Chunk* chunk);
-void freeChunk(Chunk* chunk);
-void writeChunk(Chunk* chunk, uint8_t byte, uint32_t line);
-void writeConstant(Chunk* chunk, Value value, uint32_t line);
+void freeChunk(FreeList* freeList, Chunk* chunk);
+void writeChunk(FreeList* freeList, Chunk* chunk, uint8_t byte, uint32_t line);
+void writeConstant(FreeList* freeList, Chunk* chunk, Value value, uint32_t line);
 uint32_t getLine(Chunk* chunk, uint32_t instructionIndex);
 
 #endif //CLOX_CHUNK_H

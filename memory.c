@@ -20,31 +20,45 @@ void freeMemory(FreeList* freeList) {
     freeList->first = NULL;
 }
 
-void* newReallocate(FreeList* freeList, void* pointer, size_t oldSize, size_t newSize) {
+// TODO potential improvements: keep list sorted in memory order; merge adjacent free blocks to reduce fragmentation
+void* reallocate(FreeList* freeList, void* pointer, size_t oldSize, size_t newSize) {
     void* result = NULL;
 
-    Block** prevPtr = &freeList->first;
-    for (Block* block = freeList->first; block; block = block->next) {
-        if (block->blockSize > newSize) {
-            Block* newBlock = (Block *)((void * ) (block) + newSize);
-            newBlock->blockSize = block->blockSize - newSize;
-            newBlock->next = block->next;
-            *prevPtr = newBlock;
-            result = (void*) block;
-            break;
+    if (newSize) {
+        // need to always allocate enough space to be able to reuse the space to store block metadata once it's freed
+        if (newSize < sizeof(Block)) newSize = sizeof(Block);
+
+        Block** prevPtr = &freeList->first;
+        for (Block* block = freeList->first; block; block = block->next) {
+            if (block->blockSize > newSize) {
+                Block* newBlock = (Block*) ((void*) (block) + newSize);
+                newBlock->blockSize = block->blockSize - newSize;
+                newBlock->next = block->next;
+                *prevPtr = newBlock;
+                result = (void*) block;
+                break;
+            }
+            if (block->blockSize == newSize) {
+                *prevPtr = block->next;
+                result = (void*) block;
+                break;
+            }
+            prevPtr = &block->next;
         }
-        if (block->blockSize == newSize) {
-            *prevPtr = block->next;
-            result = (void*) block;
-            break;
-        }
-        prevPtr = &block->next;
     }
 
     if (pointer && oldSize) {
+        if (oldSize < sizeof(Block)) oldSize = sizeof(Block);
         Block* last = freeList->first;
         while(last->next) {
             last = last->next;
+        }
+        if (result) {
+            for (size_t i = 0; i < oldSize; i++) {
+                uint8_t* src = (uint8_t*) (pointer + i);
+                uint8_t* dst = (uint8_t*) (result + i);
+                *dst = *src;
+            }
         }
         Block* newBlock = (Block*) pointer;
         newBlock->next = NULL;
@@ -52,16 +66,5 @@ void* newReallocate(FreeList* freeList, void* pointer, size_t oldSize, size_t ne
         last->next = newBlock;
     }
 
-    return result;
-}
-
-void* reallocate(void* pointer, size_t oldSize, size_t newSize) {
-    if (newSize == 0) {
-        free(pointer);
-        return NULL;
-    }
-
-    void* result = realloc(pointer, newSize);
-    if (result == NULL) exit(1);
     return result;
 }

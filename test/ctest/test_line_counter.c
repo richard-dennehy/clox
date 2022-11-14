@@ -3,15 +3,17 @@
 
 int testLineCounter() {
     int err_code = TEST_SUCCEEDED;
+    FreeList freeList;
+    initMemory(&freeList, 256 * 1024);
     Chunk chunk;
     initChunk(&chunk);
 
     for (int i = 0; i < 5; i++) {
-        writeChunk(&chunk, OP_RETURN, 10);
+        writeChunk(&freeList, &chunk, OP_RETURN, 10);
     }
-    writeChunk(&chunk, OP_RETURN, 11);
+    writeChunk(&freeList, &chunk, OP_RETURN, 11);
     for (int i = 0; i < 100; i++) {
-        writeChunk(&chunk, OP_RETURN, 99);
+        writeChunk(&freeList, &chunk, OP_RETURN, 99);
     }
 
     checkIntsEqual(chunk.count, 106);
@@ -33,7 +35,8 @@ int testLineCounter() {
     checkIntsEqual(nextLine->instructions, 100);
     checkPtrsEqual(nextLine->next, NULL);
 
-    freeChunk(&chunk);
+    freeChunk(&freeList, &chunk);
+    freeMemory(&freeList);
 
     return err_code;
 }

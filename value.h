@@ -2,6 +2,7 @@
 #define CLOX_VALUE_H
 
 #include "common.h"
+#include "memory.h"
 
 typedef double Value;
 
@@ -12,8 +13,8 @@ typedef struct {
 } ValueArray;
 
 void initValueArray(ValueArray* array);
-void writeValue(ValueArray* array, Value value);
-void freeValueArray(ValueArray* array);
+void writeValue(FreeList* freeList, ValueArray* array, Value value);
+void freeValueArray(FreeList* freeList, ValueArray* array);
 void printValue(Value value);
 
 #endif //CLOX_VALUE_H
