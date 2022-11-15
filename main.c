@@ -9,11 +9,17 @@ int main(int argc, const char** argv) {
     Chunk chunk;
     initChunk(&chunk);
 
-    for (int i = 0; i < 257; i++) {
-        writeConstant(&freeList, &chunk, i * 2, i + 1);
-    }
+    writeConstant(&freeList, &chunk, 1.2, 123);
+    writeConstant(&freeList, &chunk, 3.4, 123);
 
-    writeChunk(&freeList, &chunk, OP_RETURN, 258);
+    writeChunk(&freeList, &chunk, OP_ADD, 123);
+
+    writeConstant(&freeList, &chunk, 5.6, 123);
+    writeChunk(&freeList, &chunk, OP_DIVIDE, 123);
+
+    writeChunk(&freeList, &chunk, OP_NEGATE, 123);
+
+    writeChunk(&freeList, &chunk, OP_RETURN, 123);
 
     interpret(&vm, &chunk);
     freeChunk(&freeList, &chunk);
