@@ -5,10 +5,10 @@ set(CMAKE_C_STANDARD 11)
 
 include_directories(.)
 
-add_library(clox_lib chunk.c common.h memory.c debug.c value.c)
+add_library(clox_lib chunk.c common.h memory.c debug.c value.c vm.c vm.h)
 
 add_executable(clox
-        main.c common.h chunk.h chunk.c memory.h memory.c debug.c debug.h value.c value.h)
+        main.c common.h chunk.h chunk.c memory.h memory.c debug.c debug.h value.c value.h vm.c vm.h)
 
 enable_testing()
 add_subdirectory(test/ctest)

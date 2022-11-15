@@ -1,9 +1,11 @@
 #include "chunk.h"
-#include "debug.h"
+#include "vm.h"
 
 int main(int argc, const char** argv) {
     FreeList freeList;
     initMemory(&freeList, 64 * 1024 * 1024);
+    VM vm;
+    initVM(&vm);
     Chunk chunk;
     initChunk(&chunk);
 
@@ -13,8 +15,9 @@ int main(int argc, const char** argv) {
 
     writeChunk(&freeList, &chunk, OP_RETURN, 258);
 
-    disassembleChunk(&chunk, "Test chunk");
+    interpret(&vm, &chunk);
     freeChunk(&freeList, &chunk);
+    freeVM(&vm);
     freeMemory(&freeList);
 
     return 0;
