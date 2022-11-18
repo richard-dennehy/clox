@@ -5,28 +5,29 @@
 #include "debug.h"
 
 static void resetStack(VM* vm) {
-    vm->stackTop = vm->stack;
+    vm->stack.count = 0;
 }
 
 void initVM(VM* vm) {
+    initValueArray(&vm->stack);
     resetStack(vm);
 }
 
-void freeVM(VM* vm) {
-
+void freeVM(FreeList* freeList, VM* vm) {
+    freeValueArray(freeList, &vm->stack);
 }
 
-static InterpretResult run(VM* vm) {
+static InterpretResult run(FreeList* freeList, VM* vm) {
 #define READ_BYTE (*vm->ip++)
-#define PEEK (vm->stackTop[-1])
+#define PEEK (vm->stack.values[vm->stack.count - 1])
 #define BINARY_OP(op) do { Value b = pop(vm); PEEK = PEEK op b; } while (false)
 
     while (vm->ip < vm->chunk->code + vm->chunk->count) {
 #ifdef DEBUG_TRACE_EXECUTION
         printf("          ");
-        for (Value* slot = vm->stack; slot < vm->stackTop; slot++) {
+        for (uint32_t i = 0; i < vm->stack.count; i++) {
             printf("[");
-            printValue(*slot);
+            printValue(vm->stack.values[i]);
             printf("]");
         }
         printf("\n");
@@ -60,13 +61,13 @@ static InterpretResult run(VM* vm) {
             }
             case OP_CONSTANT: {
                 Value constant = vm->chunk->constants.values[READ_BYTE];
-                push(vm, constant);
+                push(freeList, vm, constant);
                 break;
             }
             case OP_CONSTANT_LONG: {
                 uint32_t index = (READ_BYTE << 16) | (READ_BYTE << 8) | READ_BYTE;
                 Value constant = vm->chunk->constants.values[index];
-                push(vm, constant);
+                push(freeList, vm, constant);
                 break;
             }
         }
@@ -79,23 +80,19 @@ static InterpretResult run(VM* vm) {
 #undef BINARY_OP
 }
 
-InterpretResult interpret(VM* vm, Chunk* chunk) {
+InterpretResult interpret(FreeList* freeList, VM* vm, Chunk* chunk) {
     vm->chunk = chunk;
     vm->ip = vm->chunk->code;
-    return run(vm);
+    return run(freeList, vm);
 }
 
-void push(VM* vm, Value value) {
-    if(vm->stackTop >= vm->stack + STACK_MAX) {
-        assert(!"Stack overflow");
-    }
-    *vm->stackTop++ = value;
+void push(FreeList* freeList, VM* vm, Value value) {
+    writeValue(freeList, &vm->stack, value);
 }
 
 Value pop(VM* vm) {
-    if (vm->stackTop == vm->stack) {
-        assert(!"Stack underflow (?)");
-    }
-    return *--vm->stackTop;
+    if (vm->stack.count <= 0) assert(!"Empty stack");
+
+    return vm->stack.values[--vm->stack.count];
 }
 

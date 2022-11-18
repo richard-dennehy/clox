@@ -21,9 +21,9 @@ int main(int argc, const char** argv) {
 
     writeChunk(&freeList, &chunk, OP_RETURN, 123);
 
-    interpret(&vm, &chunk);
+    interpret(&freeList, &vm, &chunk);
     freeChunk(&freeList, &chunk);
-    freeVM(&vm);
+    freeVM(&freeList, &vm);
     freeMemory(&freeList);
 
     return 0;
