@@ -18,7 +18,8 @@ void freeVM(VM* vm) {
 
 static InterpretResult run(VM* vm) {
 #define READ_BYTE (*vm->ip++)
-#define BINARY_OP(op) do { Value b = pop(vm); Value a = pop(vm); push(vm, a op b); } while (false)
+#define PEEK (vm->stackTop[-1])
+#define BINARY_OP(op) do { Value b = pop(vm); PEEK = PEEK op b; } while (false)
 
     while (vm->ip < vm->chunk->code + vm->chunk->count) {
 #ifdef DEBUG_TRACE_EXECUTION
@@ -54,7 +55,7 @@ static InterpretResult run(VM* vm) {
                 break;
             }
             case OP_NEGATE: {
-                push(vm, -pop(vm));
+                PEEK = -PEEK;
                 break;
             }
             case OP_CONSTANT: {
@@ -71,7 +72,10 @@ static InterpretResult run(VM* vm) {
         }
     }
 
+    return INTERPRET_OK;
+
 #undef READ_BYTE
+#undef PEEK
 #undef BINARY_OP
 }
 
