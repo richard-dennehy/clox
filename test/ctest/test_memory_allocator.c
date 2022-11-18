@@ -120,5 +120,5 @@ int testReallocation() {
 }
 
 int main() {
-    return testAllocation() || testReallocation();
+    return testAllocation() | testReallocation();
 }

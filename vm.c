@@ -20,7 +20,7 @@ static InterpretResult run(VM* vm) {
 #define READ_BYTE (*vm->ip++)
 #define BINARY_OP(op) do { Value b = pop(vm); Value a = pop(vm); push(vm, a op b); } while (false)
 
-    for (;;) {
+    while (vm->ip < vm->chunk->code + vm->chunk->count) {
 #ifdef DEBUG_TRACE_EXECUTION
         printf("          ");
         for (Value* slot = vm->stack; slot < vm->stackTop; slot++) {
@@ -89,6 +89,9 @@ void push(VM* vm, Value value) {
 }
 
 Value pop(VM* vm) {
+    if (vm->stackTop == vm->stack) {
+        assert(!"Stack underflow (?)");
+    }
     return *--vm->stackTop;
 }
 

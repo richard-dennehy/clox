@@ -87,7 +87,7 @@ void writeConstant(FreeList* freeList, Chunk* chunk, Value value, uint32_t line)
 uint32_t getLine(Chunk* chunk, uint32_t instructionIndex) {
     uint32_t line = UINT32_MAX;
     for (Line* nextLine = chunk->firstLine; nextLine; nextLine = nextLine->next) {
-        if (instructionIndex < nextLine->instructions) {
+        if (instructionIndex <= nextLine->instructions) {
             line = nextLine->lineNumber;
             break;
         }
