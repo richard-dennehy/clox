@@ -1,28 +1,33 @@
+#include <assert.h>
+#include <stdio.h>
+#include <stdlib.h>
 #include "chunk.h"
 #include "vm.h"
 
+static void repl(FreeList* freeList, VM* vm) {
+    assert(!"Not implemented");
+}
+
+static void runFile(FreeList* freeList, VM* vm, const char* path) {
+    assert(!"Not implemented");
+}
+
 int main(int argc, const char** argv) {
     FreeList freeList;
-    initMemory(&freeList, 64 * 1024 * 1024);
+    initMemory(&freeList, 256 * 1024 * 1024);
+
     VM vm;
     initVM(&vm);
-    Chunk chunk;
-    initChunk(&chunk);
 
-    writeConstant(&freeList, &chunk, 1.2, 123);
-    writeConstant(&freeList, &chunk, 3.4, 123);
+    if (argc == 1) {
+        repl(&freeList, &vm);
+    } else if (argc == 2) {
+        runFile(&freeList, &vm, argv[1]);
+    } else {
+        fprintf(stderr, "Usage: clox [path]\n");
+        exit(64);
+    }
 
-    writeChunk(&freeList, &chunk, OP_ADD, 123);
-
-    writeConstant(&freeList, &chunk, 5.6, 123);
-    writeChunk(&freeList, &chunk, OP_DIVIDE, 123);
-
-    writeChunk(&freeList, &chunk, OP_NEGATE, 123);
-
-    writeChunk(&freeList, &chunk, OP_RETURN, 123);
-
-    interpret(&freeList, &vm, &chunk);
-    freeChunk(&freeList, &chunk);
     freeVM(&freeList, &vm);
     freeMemory(&freeList);
 

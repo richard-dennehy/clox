@@ -17,7 +17,7 @@ typedef enum {
 
 void initVM(VM* vm);
 void freeVM(FreeList* freeList, VM* vm);
-InterpretResult interpret(FreeList* freeList, VM* vm, Chunk* chunk);
+InterpretResult interpret(FreeList* freeList, VM* vm, const char* source);
 void push(FreeList* freeList, VM* vm, Value value);
 Value pop(VM* vm);
 

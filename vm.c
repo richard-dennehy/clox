@@ -3,6 +3,7 @@
 #include "common.h"
 #include "vm.h"
 #include "debug.h"
+#include "compiler.h"
 
 static void resetStack(VM* vm) {
     vm->stack.count = 0;
@@ -80,10 +81,9 @@ static InterpretResult run(FreeList* freeList, VM* vm) {
 #undef BINARY_OP
 }
 
-InterpretResult interpret(FreeList* freeList, VM* vm, Chunk* chunk) {
-    vm->chunk = chunk;
-    vm->ip = vm->chunk->code;
-    return run(freeList, vm);
+InterpretResult interpret(FreeList* freeList, VM* vm, const char* source) {
+    compile(source);
+    return INTERPRET_OK;
 }
 
 void push(FreeList* freeList, VM* vm, Value value) {
