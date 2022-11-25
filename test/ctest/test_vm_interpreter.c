@@ -1,5 +1,5 @@
 #include "test_suite.h"
-#include "vm.h"
+#include "vm.c"
 
 int testVmStack() {
     int err_code = TEST_SUCCEEDED;
@@ -48,35 +48,35 @@ int testVmArithmetic() {
 
     writeConstant(&freeList, &chunk, 2.0, 1);
     writeChunk(&freeList, &chunk, OP_NEGATE, 1);
-    interpret(&freeList, &vm, &chunk);
+    interpretChunk(&freeList, &vm, &chunk);
     checkFloatsEqual(vm.stack.values[0], -2.0);
     resetChunk(&freeList, &chunk);
 
     writeConstant(&freeList, &chunk, 3.0, 2);
     writeConstant(&freeList, &chunk, 4.0, 2);
     writeChunk(&freeList, &chunk, OP_MULTIPLY, 2);
-    interpret(&freeList, &vm, &chunk);
+    interpretChunk(&freeList, &vm, &chunk);
     checkFloatsEqual(vm.stack.values[1], 12.0);
     resetChunk(&freeList, &chunk);
 
     writeConstant(&freeList, &chunk, 5.0, 3);
     writeConstant(&freeList, &chunk, 6.0, 3);
     writeChunk(&freeList, &chunk, OP_ADD, 3);
-    interpret(&freeList, &vm, &chunk);
+    interpretChunk(&freeList, &vm, &chunk);
     checkFloatsEqual(vm.stack.values[2], 11.0);
     resetChunk(&freeList, &chunk);
 
     writeConstant(&freeList, &chunk, 7.0, 4);
     writeConstant(&freeList, &chunk, 8.0, 4);
     writeChunk(&freeList, &chunk, OP_SUBTRACT, 4);
-    interpret(&freeList, &vm, &chunk);
+    interpretChunk(&freeList, &vm, &chunk);
     checkFloatsEqual(vm.stack.values[3], -1.0);
     resetChunk(&freeList, &chunk);
 
     writeConstant(&freeList, &chunk, 9.0, 5);
     writeConstant(&freeList, &chunk, 10.0, 5);
     writeChunk(&freeList, &chunk, OP_DIVIDE, 5);
-    interpret(&freeList, &vm, &chunk);
+    interpretChunk(&freeList, &vm, &chunk);
     checkFloatsEqual(vm.stack.values[4], 0.9);
 
     freeChunk(&freeList, &chunk);

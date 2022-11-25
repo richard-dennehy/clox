@@ -81,6 +81,13 @@ static InterpretResult run(FreeList* freeList, VM* vm) {
 #undef BINARY_OP
 }
 
+// keep the tests working
+InterpretResult interpretChunk(FreeList* freeList, VM* vm, Chunk* chunk) {
+    vm->chunk = chunk;
+    vm->ip = chunk->code;
+    return run(freeList, vm);
+}
+
 InterpretResult interpret(FreeList* freeList, VM* vm, const char* source) {
     compile(source);
     return INTERPRET_OK;
