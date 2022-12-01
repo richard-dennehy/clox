@@ -113,7 +113,6 @@ static bool isAlpha(char c) {
 }
 
 static TokenType checkKeyword(Scanner* scanner, uint32_t start, uint32_t length, const char* rest, TokenType type) {
-    // TODO strcmp?
     if (scanner->current - scanner->start == start + length && memcmp(scanner->start + start, rest, length) == 0) {
         return type;
     }
