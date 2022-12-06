@@ -89,8 +89,21 @@ InterpretResult interpretChunk(FreeList* freeList, VM* vm, Chunk* chunk) {
 }
 
 InterpretResult interpret(FreeList* freeList, VM* vm, const char* source) {
-    compile(source);
-    return INTERPRET_OK;
+    Chunk chunk;
+    initChunk(&chunk);
+
+    if (!compile(freeList, source, &chunk)) {
+        freeChunk(freeList, &chunk);
+        return INTERPRET_COMPILE_ERROR;
+    }
+
+    vm->chunk = &chunk;
+    vm->ip = chunk.code;
+
+    InterpretResult result = run(freeList, vm);
+
+    freeChunk(freeList, &chunk);
+    return result;
 }
 
 void push(FreeList* freeList, VM* vm, Value value) {

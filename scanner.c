@@ -220,7 +220,7 @@ Token scanToken(Scanner* scanner) {
             return makeToken(scanner, match(scanner, '=') ? TOKEN_GREATER_THAN_EQUAL : TOKEN_GREATER_THAN);
         case '"':
             return string(scanner);
+        default:
+            return errorToken(scanner, "Unexpected character.");
     }
-
-    return errorToken(scanner, "Unexpected character.");
 }
