@@ -105,7 +105,7 @@ static void consume(Parser* parser, TokenType expected, const char* message) {
 }
 
 static void number(Parser* parser) {
-    Value value = strtod(parser->previous.start, NULL);
+    Value value = NUMBER_VAL(strtod(parser->previous.start, NULL));
     emitConstant(parser, value);
 }
 
@@ -121,6 +121,9 @@ static void unary(Parser* parser) {
     switch (operator) {
         case TOKEN_MINUS:
             emitByte(parser, OP_NEGATE);
+            break;
+        case TOKEN_NOT:
+            emitByte(parser, OP_NOT);
             break;
         default:
             return;
@@ -145,6 +148,41 @@ static void binary(Parser* parser) {
         case TOKEN_SLASH:
             emitByte(parser, OP_DIVIDE);
             break;
+        case TOKEN_NOT_EQUAL:
+            emitBytes(parser, OP_EQUAL, OP_NOT);
+            break;
+        case TOKEN_DOUBLE_EQUAL:
+            emitByte(parser, OP_EQUAL);
+            break;
+        case TOKEN_GREATER_THAN:
+            emitByte(parser, OP_GREATER);
+            break;
+        case TOKEN_GREATER_THAN_EQUAL:
+            emitBytes(parser, OP_LESS, OP_NOT);
+            break;
+        case TOKEN_LESS_THAN:
+            emitByte(parser, OP_LESS);
+            break;
+        case TOKEN_LESS_THAN_EQUAL:
+            emitBytes(parser, OP_GREATER, OP_NOT);
+            break;
+        default:
+            return;
+    }
+}
+
+static void literal(Parser* parser) {
+    switch (parser->previous.type) {
+        case TOKEN_NIL:
+            emitByte(parser, OP_NIL);
+            break;
+        case TOKEN_TRUE:
+            emitByte(parser, OP_TRUE);
+            break;
+        case TOKEN_FALSE:
+            emitByte(parser, OP_FALSE);
+            break;
+
         default:
             return;
     }
@@ -162,31 +200,31 @@ ParseRule rules[] = {
         [TOKEN_SEMICOLON] = { NULL, NULL, PREC_NONE },
         [TOKEN_SLASH] = { NULL, binary, PREC_FACTOR },
         [TOKEN_ASTERISK] = { NULL, binary, PREC_FACTOR },
-        [TOKEN_NOT] = { NULL, NULL, PREC_NONE },
-        [TOKEN_NOT_EQUAL] = { NULL, NULL, PREC_NONE },
+        [TOKEN_NOT] = { unary, NULL, PREC_NONE },
+        [TOKEN_NOT_EQUAL] = { NULL, binary, PREC_EQUALITY },
         [TOKEN_EQUAL] = { NULL, NULL, PREC_NONE },
-        [TOKEN_DOUBLE_EQUAL] = { NULL, NULL, PREC_NONE },
-        [TOKEN_GREATER_THAN] = { NULL, NULL, PREC_NONE },
-        [TOKEN_GREATER_THAN_EQUAL] = { NULL, NULL, PREC_NONE },
-        [TOKEN_LESS_THAN] = { NULL, NULL, PREC_NONE },
-        [TOKEN_LESS_THAN_EQUAL] = { NULL, NULL, PREC_NONE },
+        [TOKEN_DOUBLE_EQUAL] = { NULL, binary, PREC_EQUALITY },
+        [TOKEN_GREATER_THAN] = { NULL, binary, PREC_COMPARISON },
+        [TOKEN_GREATER_THAN_EQUAL] = { NULL, binary, PREC_COMPARISON },
+        [TOKEN_LESS_THAN] = { NULL, binary, PREC_COMPARISON },
+        [TOKEN_LESS_THAN_EQUAL] = { NULL, binary, PREC_COMPARISON },
         [TOKEN_IDENTIFIER] = { NULL, NULL, PREC_NONE },
         [TOKEN_STRING] = { NULL, NULL, PREC_NONE },
         [TOKEN_NUMBER] = { number, NULL, PREC_NONE },
         [TOKEN_AND] = { NULL, NULL, PREC_NONE },
         [TOKEN_CLASS] = { NULL, NULL, PREC_NONE },
         [TOKEN_ELSE] = { NULL, NULL, PREC_NONE },
-        [TOKEN_FALSE] = { NULL, NULL, PREC_NONE },
+        [TOKEN_FALSE] = { literal, NULL, PREC_NONE },
         [TOKEN_FOR] = { NULL, NULL, PREC_NONE },
         [TOKEN_FUN] = { NULL, NULL, PREC_NONE },
         [TOKEN_IF] = { NULL, NULL, PREC_NONE },
-        [TOKEN_NIL] = { NULL, NULL, PREC_NONE },
+        [TOKEN_NIL] = { literal, NULL, PREC_NONE },
         [TOKEN_OR] = { NULL, NULL, PREC_NONE },
         [TOKEN_PRINT] = { NULL, NULL, PREC_NONE },
         [TOKEN_RETURN] = { NULL, NULL, PREC_NONE },
         [TOKEN_SUPER] = { NULL, NULL, PREC_NONE },
         [TOKEN_THIS] = { NULL, NULL, PREC_NONE },
-        [TOKEN_TRUE] = { NULL, NULL, PREC_NONE },
+        [TOKEN_TRUE] = { literal, NULL, PREC_NONE },
         [TOKEN_VAR] = { NULL, NULL, PREC_NONE },
         [TOKEN_WHILE] = { NULL, NULL, PREC_NONE },
         [TOKEN_ERROR] = { NULL, NULL, PREC_NONE },

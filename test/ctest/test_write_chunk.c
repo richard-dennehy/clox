@@ -55,7 +55,7 @@ int testWriteConstant() {
     Chunk chunk;
     initChunk(&chunk);
 
-    writeConstant(&freeList, &chunk, 123, 1);
+    writeConstant(&freeList, &chunk, NUMBER_VAL(123), 1);
     checkIntsEqual(chunk.count, 2);
     assertNotNull(chunk.code);
     checkIntsEqual(chunk.code[0], OP_CONSTANT);
@@ -63,10 +63,10 @@ int testWriteConstant() {
 
     checkIntsEqual(chunk.constants.count, 1);
     assertNotNull(chunk.constants.values);
-    checkFloatsEqual(chunk.constants.values[0], 123);
+    checkFloatsEqual(AS_NUMBER(chunk.constants.values[0]), 123);
 
     for (int i = 0; i < 256; i++) {
-        writeConstant(&freeList, &chunk, i * 2, i + 1);
+        writeConstant(&freeList, &chunk, NUMBER_VAL(i * 2), i + 1);
     }
 
     checkIntsEqual(chunk.constants.count, 257);

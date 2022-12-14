@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <assert.h>
+#include <stdarg.h>
 #include "common.h"
 #include "vm.h"
 #include "debug.h"
@@ -18,10 +19,35 @@ void freeVM(FreeList* freeList, VM* vm) {
     freeValueArray(freeList, &vm->stack);
 }
 
+static void runtimeError(VM* vm, const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    vfprintf(stderr, format, args);
+    va_end(args);
+    fputs("\n", stderr);
+
+    size_t instruction = vm->ip - vm->chunk->code - 1;
+    uint32_t line = getLine(vm->chunk, instruction);
+    fprintf(stderr, "[line %d] in script\n", line);
+    resetStack(vm);
+}
+
+static bool isFalsey(Value value) {
+    return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
+}
+
 static InterpretResult run(FreeList* freeList, VM* vm) {
 #define READ_BYTE (*vm->ip++)
-#define PEEK (vm->stack.values[vm->stack.count - 1])
-#define BINARY_OP(op) do { Value b = pop(vm); PEEK = PEEK op b; } while (false)
+#define PEEK(distance) (vm->stack.values[vm->stack.count - 1 - distance])
+#define BINARY_OP(valueType, op) do { \
+    if (!IS_NUMBER(PEEK(0)) || !IS_NUMBER(PEEK(1))) { \
+        runtimeError(vm, "Operands must be numbers.");\
+        return INTERPRET_RUNTIME_ERROR; \
+    }\
+    double b = AS_NUMBER(pop(vm));     \
+    PEEK(0) = valueType(AS_NUMBER(PEEK(0)) op b);\
+} while (false)
+#define PUSH(value) push(freeList, vm, value)
 
     while (vm->ip < vm->chunk->code + vm->chunk->count) {
 #ifdef DEBUG_TRACE_EXECUTION
@@ -34,41 +60,71 @@ static InterpretResult run(FreeList* freeList, VM* vm) {
         printf("\n");
         disassembleInstruction(vm->chunk, (uint32_t) (vm->ip - vm->chunk->code));
 #endif
-        uint8_t instruction;
-        switch (instruction = READ_BYTE) {
+        switch (READ_BYTE) {
             case OP_RETURN:
                 printValue(pop(vm));
                 printf("\n");
                 return INTERPRET_OK;
             case OP_ADD: {
-                BINARY_OP(+);
+                BINARY_OP(NUMBER_VAL, +);
                 break;
             }
             case OP_SUBTRACT: {
-                BINARY_OP(-);
+                BINARY_OP(NUMBER_VAL, -);
                 break;
             }
             case OP_MULTIPLY: {
-                BINARY_OP(*);
+                BINARY_OP(NUMBER_VAL, *);
                 break;
             }
             case OP_DIVIDE: {
-                BINARY_OP(/);
+                BINARY_OP(NUMBER_VAL, /);
                 break;
             }
             case OP_NEGATE: {
-                PEEK = -PEEK;
+                if (!IS_NUMBER(PEEK(0))) {
+                    runtimeError(vm, "Operand must be a number.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                PUSH(NUMBER_VAL(-AS_NUMBER(pop(vm))));
                 break;
             }
             case OP_CONSTANT: {
-                Value constant = vm->chunk->constants.values[READ_BYTE];
-                push(freeList, vm, constant);
+                PUSH(vm->chunk->constants.values[READ_BYTE]);
                 break;
             }
             case OP_CONSTANT_LONG: {
                 uint32_t index = (READ_BYTE << 16) | (READ_BYTE << 8) | READ_BYTE;
-                Value constant = vm->chunk->constants.values[index];
-                push(freeList, vm, constant);
+                PUSH(vm->chunk->constants.values[index]);
+                break;
+            }
+            case OP_NIL: {
+                PUSH(NIL_VAL);
+                break;
+            }
+            case OP_TRUE: {
+                PUSH(BOOL_VAL(true));
+                break;
+            }
+            case OP_FALSE: {
+                PUSH(BOOL_VAL(false));
+                break;
+            }
+            case OP_NOT: {
+                PUSH(BOOL_VAL(isFalsey(pop(vm))));
+                break;
+            }
+            case OP_EQUAL: {
+                Value b = pop(vm);
+                PEEK(0) = BOOL_VAL(valuesEqual(PEEK(0), b));
+                break;
+            }
+            case OP_GREATER: {
+                BINARY_OP(BOOL_VAL, >);
+                break;
+            }
+            case OP_LESS: {
+                BINARY_OP(BOOL_VAL, <);
                 break;
             }
         }
@@ -76,6 +132,7 @@ static InterpretResult run(FreeList* freeList, VM* vm) {
 
     return INTERPRET_OK;
 
+#undef PUSH
 #undef READ_BYTE
 #undef PEEK
 #undef BINARY_OP
