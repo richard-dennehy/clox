@@ -31,55 +31,28 @@ int testVmStack() {
     return err_code;
 }
 
-static void resetChunk(FreeList* freeList, Chunk* chunk) {
-    freeChunk(freeList, chunk);
-    initChunk(chunk);
-}
-
 int testVmArithmetic() {
     int err_code = TEST_SUCCEEDED;
 
     FreeList freeList;
     VM vm;
-    Chunk chunk;
     initMemory(&freeList, 16 * 1024);
     initVM(&vm);
-    initChunk(&chunk);
 
-    writeConstant(&freeList, &chunk, 2.0, 1);
-    writeChunk(&freeList, &chunk, OP_NEGATE, 1);
-    interpretChunk(&freeList, &vm, &chunk);
-    checkFloatsEqual(vm.stack.values[0], -2.0);
-    resetChunk(&freeList, &chunk);
+    // NOTE: these tests will probably stop working once the temporary return instruction stops being added to all chunks - will need to adjust the indexes
+#define RUN_TEST(source, expected) do { \
+    interpret(&freeList, &vm, source);  \
+    checkFloatsEqual(vm.stack.values[0], expected); \
+} while(0)
 
-    writeConstant(&freeList, &chunk, 3.0, 2);
-    writeConstant(&freeList, &chunk, 4.0, 2);
-    writeChunk(&freeList, &chunk, OP_MULTIPLY, 2);
-    interpretChunk(&freeList, &vm, &chunk);
-    checkFloatsEqual(vm.stack.values[1], 12.0);
-    resetChunk(&freeList, &chunk);
+    RUN_TEST("-2", -2.0);
+    RUN_TEST("3 * 4", 12.0);
+    RUN_TEST("5 + 6", 11.0);
+    RUN_TEST("7 - 8", -1.0);
+    RUN_TEST("9 / 10", 0.9);
+    RUN_TEST("(-1 + 2) * 3 - -4", 7);
 
-    writeConstant(&freeList, &chunk, 5.0, 3);
-    writeConstant(&freeList, &chunk, 6.0, 3);
-    writeChunk(&freeList, &chunk, OP_ADD, 3);
-    interpretChunk(&freeList, &vm, &chunk);
-    checkFloatsEqual(vm.stack.values[2], 11.0);
-    resetChunk(&freeList, &chunk);
-
-    writeConstant(&freeList, &chunk, 7.0, 4);
-    writeConstant(&freeList, &chunk, 8.0, 4);
-    writeChunk(&freeList, &chunk, OP_SUBTRACT, 4);
-    interpretChunk(&freeList, &vm, &chunk);
-    checkFloatsEqual(vm.stack.values[3], -1.0);
-    resetChunk(&freeList, &chunk);
-
-    writeConstant(&freeList, &chunk, 9.0, 5);
-    writeConstant(&freeList, &chunk, 10.0, 5);
-    writeChunk(&freeList, &chunk, OP_DIVIDE, 5);
-    interpretChunk(&freeList, &vm, &chunk);
-    checkFloatsEqual(vm.stack.values[4], 0.9);
-
-    freeChunk(&freeList, &chunk);
+#undef RUN_TEST
     freeVM(&freeList, &vm);
     freeMemory(&freeList);
 

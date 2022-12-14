@@ -3,6 +3,7 @@
 #include <assert.h>
 #include "compiler.h"
 #include "scanner.h"
+#include "debug.h"
 
 typedef enum {
     PREC_NONE,
@@ -198,6 +199,11 @@ static ParseRule* getRule(TokenType type) {
 
 static void endCompiler(Parser* parser) {
     emitByte(parser, OP_RETURN);
+#ifdef DEBUG_PRINT_CODE
+    if (!parser->hadError) {
+        disassembleChunk(currentChunk(parser), "code");
+    }
+#endif
 }
 
 bool compile(FreeList* freeList, const char* source, Chunk* chunk) {
