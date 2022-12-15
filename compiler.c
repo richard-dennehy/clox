@@ -4,6 +4,7 @@
 #include "compiler.h"
 #include "scanner.h"
 #include "debug.h"
+#include "object.h"
 
 typedef enum {
     PREC_NONE,
@@ -109,6 +110,11 @@ static void number(Parser* parser) {
     emitConstant(parser, value);
 }
 
+static void string(Parser* parser) {
+    Value value = OBJ_VAL(copyString(parser->freeList, parser->previous.start, parser->previous.length));
+    emitConstant(parser, value);
+}
+
 static void grouping(Parser* parser) {
     expression(parser);
     consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
@@ -209,7 +215,7 @@ ParseRule rules[] = {
         [TOKEN_LESS_THAN] = { NULL, binary, PREC_COMPARISON },
         [TOKEN_LESS_THAN_EQUAL] = { NULL, binary, PREC_COMPARISON },
         [TOKEN_IDENTIFIER] = { NULL, NULL, PREC_NONE },
-        [TOKEN_STRING] = { NULL, NULL, PREC_NONE },
+        [TOKEN_STRING] = { string, NULL, PREC_NONE },
         [TOKEN_NUMBER] = { number, NULL, PREC_NONE },
         [TOKEN_AND] = { NULL, NULL, PREC_NONE },
         [TOKEN_CLASS] = { NULL, NULL, PREC_NONE },

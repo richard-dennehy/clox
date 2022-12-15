@@ -1,10 +1,12 @@
 #include <stdio.h>
 #include <assert.h>
 #include <stdarg.h>
+#include <string.h>
 #include "common.h"
 #include "vm.h"
 #include "debug.h"
 #include "compiler.h"
+#include "object.h"
 
 static void resetStack(VM* vm) {
     vm->stack.count = 0;
@@ -13,6 +15,7 @@ static void resetStack(VM* vm) {
 void initVM(VM* vm) {
     initValueArray(&vm->stack);
     resetStack(vm);
+    vm->objects = NULL;
 }
 
 void freeVM(FreeList* freeList, VM* vm) {
@@ -36,6 +39,20 @@ static bool isFalsey(Value value) {
     return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
 }
 
+static void concatenate(FreeList* freeList, VM* vm) {
+    ObjString* b = AS_STRING(pop(vm));
+    ObjString* a = AS_STRING(pop(vm));
+
+    uint32_t length = a->length + b->length;
+    char* chars = ALLOCATE(char, length + 1);
+    memcpy(chars, a->chars, a->length);
+    memcpy(chars + a->length, b->chars, b->length);
+    chars[length] = '\0';
+
+    ObjString* result = takeString(freeList, chars, length);
+    push(freeList, vm, OBJ_VAL(result));
+}
+
 static InterpretResult run(FreeList* freeList, VM* vm) {
 #define READ_BYTE (*vm->ip++)
 #define PEEK(distance) (vm->stack.values[vm->stack.count - 1 - distance])
@@ -44,8 +61,9 @@ static InterpretResult run(FreeList* freeList, VM* vm) {
         runtimeError(vm, "Operands must be numbers.");\
         return INTERPRET_RUNTIME_ERROR; \
     }\
-    double b = AS_NUMBER(pop(vm));     \
-    PEEK(0) = valueType(AS_NUMBER(PEEK(0)) op b);\
+    double b = AS_NUMBER(pop(vm));    \
+    double a = AS_NUMBER(PEEK(0));    \
+    PEEK(0) = valueType(a op b);\
 } while (false)
 #define PUSH(value) push(freeList, vm, value)
 
@@ -66,7 +84,16 @@ static InterpretResult run(FreeList* freeList, VM* vm) {
                 printf("\n");
                 return INTERPRET_OK;
             case OP_ADD: {
-                BINARY_OP(NUMBER_VAL, +);
+                if (IS_STRING(PEEK(0)) && IS_STRING(PEEK(1))) {
+                    concatenate(freeList, vm);
+                } else if (IS_NUMBER(PEEK(0)) && IS_NUMBER(PEEK(1))) {
+                    double b = AS_NUMBER(pop(vm));
+                    double a = AS_NUMBER(PEEK(0));
+                    PEEK(0) = NUMBER_VAL(a + b);
+                } else {
+                    runtimeError(vm, "Operands must be two numbers or two strings");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
                 break;
             }
             case OP_SUBTRACT: {

@@ -10,6 +10,8 @@
         sizeof(type) * (newCount))
 #define FREE_ARRAY(type, pointer, oldCount) \
     (type*) reallocate(freeList, pointer, sizeof(type) * (oldCount), 0)
+#define ALLOCATE(type, count) \
+    (type*) reallocate(freeList, NULL, 0, sizeof(type) * count)
 
 typedef struct Block {
     struct Block* next;

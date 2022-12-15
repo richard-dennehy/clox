@@ -7,6 +7,7 @@ typedef struct {
     Chunk* chunk;
     uint8_t* ip;
     ValueArray stack;
+    Obj* objects;
 } VM;
 
 typedef enum {
