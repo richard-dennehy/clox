@@ -171,6 +171,27 @@ int testComparisons() {
 #undef RUN_TEST
 }
 
+int testStrings() {
+    int err_code = TEST_SUCCEEDED;
+
+    FreeList freeList;
+    VM vm;
+    initMemory(&freeList, 16 * 1024);
+    initVM(&freeList, &vm);
+
+    INTERPRET("\"st\" + \"ri\" + \"ng\"");
+    checkIntsEqual(STACK_HEAD.type, VAL_OBJ);
+    checkIntsEqual(AS_OBJ(STACK_HEAD)->type, OBJ_STRING);
+    checkIntsEqual(AS_STRING(STACK_HEAD)->length, 6);
+
+    checkIntsEqual(interpret(&vm, "\"cannot add strings and numbers\" + 1.0"), INTERPRET_RUNTIME_ERROR);
+    checkIntsEqual(interpret(&vm, "1.0 + \"cannot add numbers and strings\""), INTERPRET_RUNTIME_ERROR);
+
+    freeVM(&vm);
+    freeMemory(&freeList);
+    return err_code;
+}
+
 int main() {
-    return testVmStack() | testVmArithmetic() | testNil() | testBools() | testComparisons();
+    return testVmStack() | testVmArithmetic() | testNil() | testBools() | testComparisons() | testStrings();
 }
