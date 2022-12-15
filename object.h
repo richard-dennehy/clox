@@ -3,6 +3,7 @@
 
 #include "common.h"
 #include "value.h"
+#include "vm.h"
 
 typedef enum {
     OBJ_STRING,
@@ -19,9 +20,10 @@ struct ObjString {
     char* chars;
 };
 
-ObjString* copyString(FreeList* freeList, const char* chars, uint32_t length);
-ObjString* takeString(FreeList* freeList, char* chars, uint32_t length);
+ObjString* copyString(VM* vm, const char* chars, uint32_t length);
+ObjString* takeString(VM* vm, char* chars, uint32_t length);
 void printObject(Value value);
+void freeObjects(VM* vm);
 
 static inline bool isObjType(Value value, ObjType type) {
     return IS_OBJ(value) && AS_OBJ(value)->type == type;

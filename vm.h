@@ -4,6 +4,7 @@
 #include "chunk.h"
 
 typedef struct {
+    FreeList* freeList;
     Chunk* chunk;
     uint8_t* ip;
     ValueArray stack;
@@ -16,10 +17,10 @@ typedef enum {
     INTERPRET_RUNTIME_ERROR,
 } InterpretResult;
 
-void initVM(VM* vm);
-void freeVM(FreeList* freeList, VM* vm);
-InterpretResult interpret(FreeList* freeList, VM* vm, const char* source);
-void push(FreeList* freeList, VM* vm, Value value);
+void initVM(FreeList* freeList, VM* vm);
+void freeVM(VM* vm);
+InterpretResult interpret(VM* vm, const char* source);
+void push(VM* vm, Value value);
 Value pop(VM* vm);
 
 #endif //CLOX_VM_H

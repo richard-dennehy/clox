@@ -1,7 +1,7 @@
 #include "test_suite.h"
 #include "vm.c"
 
-#define INTERPRET(source) assert(interpret(&freeList, &vm, source) == INTERPRET_OK)
+#define INTERPRET(source) assert(interpret(&vm, source) == INTERPRET_OK)
 #define STACK_HEAD vm.stack.values[0]
 
 int testVmStack() {
@@ -10,26 +10,26 @@ int testVmStack() {
     FreeList freeList;
     initMemory(&freeList, 16 * 1024);
     VM vm;
-    initVM(&vm);
+    initVM(&freeList, &vm);
 
     Value v0 = NUMBER_VAL(1.0);
-    push(&freeList, &vm, v0);
+    push(&vm, v0);
     checkFloatsEqual(AS_NUMBER(pop(&vm)), 1.0);
 
     Value v1 = NUMBER_VAL(2.0);
     Value v2 = NUMBER_VAL(4.0);
-    push(&freeList, &vm, v1);
-    push(&freeList, &vm, v2);
+    push(&vm, v1);
+    push(&vm, v2);
 
     checkFloatsEqual(AS_NUMBER(pop(&vm)), 4.0);
     checkFloatsEqual(AS_NUMBER(pop(&vm)), 2.0);
 
     for (int i = 0; i < 257; i++) {
-        push(&freeList, &vm, NUMBER_VAL(i));
+        push(&vm, NUMBER_VAL(i));
     }
     checkFloatsEqual(AS_NUMBER(pop(&vm)), 256);
 
-    freeVM(&freeList, &vm);
+    freeVM(&vm);
     freeMemory(&freeList);
     return err_code;
 }
@@ -40,7 +40,7 @@ int testVmArithmetic() {
     FreeList freeList;
     VM vm;
     initMemory(&freeList, 16 * 1024);
-    initVM(&vm);
+    initVM(&freeList, &vm);
 
     // NOTE: these tests will probably stop working once the temporary return instruction stops being added to all chunks - will need to adjust the indexes
 #define RUN_TEST(source, expected) do { \
@@ -58,7 +58,7 @@ int testVmArithmetic() {
     RUN_TEST("(-1 + 2) * 3 - -4", 7);
 
 #undef RUN_TEST
-    freeVM(&freeList, &vm);
+    freeVM(&vm);
     freeMemory(&freeList);
 
     return err_code;
@@ -70,7 +70,7 @@ int testNil() {
     FreeList freeList;
     VM vm;
     initMemory(&freeList, 16 * 1024);
-    initVM(&vm);
+    initVM(&freeList, &vm);
 
     INTERPRET("nil");
     checkIntsEqual(vm.stack.values[0].type, VAL_NIL);
@@ -87,7 +87,7 @@ int testNil() {
     checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
     checkIntsEqual(STACK_HEAD.as.boolean, true);
 
-    freeVM(&freeList, &vm);
+    freeVM(&vm);
     freeMemory(&freeList);
     return err_code;
 }
@@ -98,7 +98,7 @@ int testBools() {
     FreeList freeList;
     VM vm;
     initMemory(&freeList, 16 * 1024);
-    initVM(&vm);
+    initVM(&freeList, &vm);
 
     INTERPRET("true");
     checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
@@ -128,7 +128,7 @@ int testBools() {
     checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
     checkIntsEqual(STACK_HEAD.as.boolean, false);
 
-    freeVM(&freeList, &vm);
+    freeVM(&vm);
     freeMemory(&freeList);
     return err_code;
 }
@@ -145,7 +145,7 @@ int testComparisons() {
     FreeList freeList;
     VM vm;
     initMemory(&freeList, 16 * 1024);
-    initVM(&vm);
+    initVM(&freeList, &vm);
 
     RUN_TEST("1 > 0", true);
     RUN_TEST("1 >= 0", true);
@@ -165,7 +165,7 @@ int testComparisons() {
     RUN_TEST("0 <= 1", true);
     RUN_TEST("0 < 1", true);
 
-    freeVM(&freeList, &vm);
+    freeVM(&vm);
     freeMemory(&freeList);
     return err_code;
 #undef RUN_TEST

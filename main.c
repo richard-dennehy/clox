@@ -14,7 +14,7 @@ static void repl(FreeList* freeList, VM* vm) {
             break;
         }
 
-        interpret(freeList, vm, line);
+        interpret(vm, line);
     }
 }
 
@@ -30,7 +30,7 @@ static void runFile(FreeList* freeList, VM* vm, const char* path) {
 
     fclose(file);
 
-    InterpretResult result = interpret(freeList, vm, source);
+    InterpretResult result = interpret(vm, source);
     reallocate(freeList, source, fileSize + 1, 0);
 
     if (result == INTERPRET_COMPILE_ERROR) exit(65);
@@ -42,7 +42,7 @@ int main(int argc, const char** argv) {
     initMemory(&freeList, 256 * 1024 * 1024);
 
     VM vm;
-    initVM(&vm);
+    initVM(&freeList, &vm);
 
     if (argc == 1) {
         repl(&freeList, &vm);
@@ -53,7 +53,7 @@ int main(int argc, const char** argv) {
         exit(64);
     }
 
-    freeVM(&freeList, &vm);
+    freeVM(&vm);
     freeMemory(&freeList);
 
     return 0;

@@ -12,6 +12,7 @@
     (type*) reallocate(freeList, pointer, sizeof(type) * (oldCount), 0)
 #define ALLOCATE(type, count) \
     (type*) reallocate(freeList, NULL, 0, sizeof(type) * count)
+#define FREE(type, pointer) reallocate(freeList, pointer, sizeof(type), 0)
 
 typedef struct Block {
     struct Block* next;

@@ -111,7 +111,7 @@ static void number(Parser* parser) {
 }
 
 static void string(Parser* parser) {
-    Value value = OBJ_VAL(copyString(parser->freeList, parser->previous.start, parser->previous.length));
+    Value value = OBJ_VAL(copyString(parser->vm, parser->previous.start + 1, parser->previous.length - 2));
     emitConstant(parser, value);
 }
 
@@ -250,7 +250,7 @@ static void endCompiler(Parser* parser) {
 #endif
 }
 
-bool compile(FreeList* freeList, const char* source, Chunk* chunk) {
+bool compile(VM* vm, const char* source, Chunk* chunk) {
     Scanner scanner;
     initScanner(&scanner, source);
 
@@ -259,7 +259,8 @@ bool compile(FreeList* freeList, const char* source, Chunk* chunk) {
     parser.hadError = false;
     parser.panicMode = false;
     parser.compilingChunk = chunk;
-    parser.freeList = freeList;
+    parser.vm = vm;
+    parser.freeList = vm->freeList;
 
     advance(&parser);
     expression(&parser);
