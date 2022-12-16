@@ -187,6 +187,19 @@ int testStrings() {
     checkIntsEqual(interpret(&vm, "\"cannot add strings and numbers\" + 1.0"), INTERPRET_RUNTIME_ERROR);
     checkIntsEqual(interpret(&vm, "1.0 + \"cannot add numbers and strings\""), INTERPRET_RUNTIME_ERROR);
 
+    // test interning/equality
+    INTERPRET("\"string\" == \"string\"");
+    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
+    checkIntsEqual(AS_BOOL(STACK_HEAD), true);
+
+    INTERPRET("\"str\" + \"ing\" == \"string\"");
+    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
+    checkIntsEqual(AS_BOOL(STACK_HEAD), true);
+
+    INTERPRET("\"first\" == \"second\"");
+    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
+    checkIntsEqual(AS_BOOL(STACK_HEAD), false);
+
     freeVM(&vm);
     freeMemory(&freeList);
     return err_code;

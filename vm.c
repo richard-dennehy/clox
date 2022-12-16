@@ -17,9 +17,11 @@ void initVM(FreeList* freeList, VM* vm) {
     initValueArray(&vm->stack);
     resetStack(vm);
     vm->objects = NULL;
+    initTable(freeList, &vm->strings);
 }
 
 void freeVM(VM* vm) {
+    freeTable(&vm->strings);
     freeValueArray(vm->freeList, &vm->stack);
     freeObjects(vm);
 }

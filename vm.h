@@ -2,12 +2,14 @@
 #define CLOX_VM_H
 
 #include "chunk.h"
+#include "table.h"
 
 typedef struct {
     FreeList* freeList;
     Chunk* chunk;
     uint8_t* ip;
     ValueArray stack;
+    Table strings;
     Obj* objects;
 } VM;
 
