@@ -17,10 +17,12 @@ void initVM(FreeList* freeList, VM* vm) {
     initValueArray(&vm->stack);
     resetStack(vm);
     vm->objects = NULL;
+    initTable(freeList, &vm->globals);
     initTable(freeList, &vm->strings);
 }
 
 void freeVM(VM* vm) {
+    freeTable(&vm->globals);
     freeTable(&vm->strings);
     freeValueArray(vm->freeList, &vm->stack);
     freeObjects(vm);
@@ -83,10 +85,13 @@ static InterpretResult run(VM* vm) {
         disassembleInstruction(vm->chunk, (uint32_t) (vm->ip - vm->chunk->code));
 #endif
         switch (READ_BYTE) {
-            case OP_RETURN:
+            case OP_PRINT:
                 printValue(pop(vm));
                 printf("\n");
-                return INTERPRET_OK;
+                break;
+            case OP_POP:
+                pop(vm);
+                break;
             case OP_ADD: {
                 if (IS_STRING(PEEK(0)) && IS_STRING(PEEK(1))) {
                     concatenate(vm);
@@ -125,8 +130,22 @@ static InterpretResult run(VM* vm) {
                 break;
             }
             case OP_CONSTANT_LONG: {
+                // FIXME this is almost certainly backwards - test this
                 uint32_t index = (READ_BYTE << 16) | (READ_BYTE << 8) | READ_BYTE;
                 push(vm, vm->chunk->constants.values[index]);
+                break;
+            }
+            case OP_DEFINE_GLOBAL: {
+                ObjString* name = AS_STRING(vm->chunk->constants.values[READ_BYTE]);
+                tableSet(&vm->globals, name, PEEK(0));
+                pop(vm);
+                break;
+            }
+            case OP_DEFINE_GLOBAL_LONG: {
+                uint32_t index = (READ_BYTE << 16) | (READ_BYTE << 8) | READ_BYTE;
+                ObjString* name = AS_STRING(vm->chunk->constants.values[index]);
+                tableSet(&vm->globals, name, PEEK(0));
+                pop(vm);
                 break;
             }
             case OP_NIL: {

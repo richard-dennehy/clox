@@ -46,6 +46,10 @@ uint32_t disassembleInstruction(Chunk* chunk, uint32_t offset) {
             return constantInstruction("OP_CONSTANT", chunk, offset);
         case OP_CONSTANT_LONG:
             return longConstantInstruction("OP_CONSTANT_LONG", chunk, offset);
+        case OP_DEFINE_GLOBAL:
+            return constantInstruction("OP_DEFINE_GLOBAL", chunk, offset);
+        case OP_DEFINE_GLOBAL_LONG:
+            return longConstantInstruction("OP_DEFINE_GLOBAL_LONG", chunk, offset);
         case OP_ADD:
             return simpleInstruction("OP_ADD", offset);
         case OP_SUBTRACT:
@@ -72,7 +76,10 @@ uint32_t disassembleInstruction(Chunk* chunk, uint32_t offset) {
             return simpleInstruction("OP_LESS", offset);
         case OP_NOT:
             return simpleInstruction("OP_NOT", offset);
-
+        case OP_PRINT:
+            return simpleInstruction("OP_PRINT", offset);
+        case OP_POP:
+            return simpleInstruction("OP_POP", offset);
 
         default:
             printf("Unknown opcode %d\n", instruction);

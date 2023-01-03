@@ -69,11 +69,27 @@ static void emitBytes(Parser* parser, uint8_t byte1, uint8_t byte2) {
     emitByte(parser, byte2);
 }
 
+static uint32_t makeConstant(Parser* parser, Value value) {
+    writeValue(parser->freeList, &currentChunk(parser)->constants, value);
+    uint32_t index = currentChunk(parser)->constants.count - 1;
+    assert(index < 1 << 24 || !"Way too many constants");
+    return index;
+}
+
 static void emitConstant(Parser* parser, Value value) {
-    writeConstant(parser->freeList, currentChunk(parser), value, parser->previous.line);
+    uint32_t index = makeConstant(parser, value);
+    if (index <= 255) {
+        emitBytes(parser, OP_CONSTANT, (uint8_t) index);
+    } else {
+        emitBytes(parser, OP_CONSTANT_LONG, (uint8_t) (index >> 16));
+        emitBytes(parser, (uint8_t) (index >> 8), (uint8_t) (index >> 0));
+    }
 }
 
 static ParseRule* getRule(TokenType type);
+static void statement(Parser* parser);
+static void declaration(Parser* parser);
+
 static void parsePrecedence(Parser* parser, Precedence precedence) {
     advance(parser);
     ParseFn prefixRule = getRule(parser->previous.type)->prefix;
@@ -103,6 +119,91 @@ static void consume(Parser* parser, TokenType expected, const char* message) {
     }
 
     errorAt(parser, &parser->current, message);
+}
+
+static bool check(Parser* parser, TokenType type) {
+    return parser->current.type == type;
+}
+
+static bool match(Parser* parser, TokenType type) {
+    if (!check(parser, type)) return false;
+    advance(parser);
+    return true;
+}
+
+static void printStatement(Parser* parser) {
+    expression(parser);
+    consume(parser, TOKEN_SEMICOLON, "Expect ';' after value.");
+    emitByte(parser, OP_PRINT);
+}
+
+static void expressionStatement(Parser* parser) {
+    expression(parser);
+    consume(parser, TOKEN_SEMICOLON, "Expect ';' after value.");
+    emitByte(parser, OP_POP);
+}
+
+static void synchronise(Parser* parser) {
+    parser->panicMode = false;
+
+    while (parser->current.type != TOKEN_EOF) {
+        if (parser->previous.type == TOKEN_SEMICOLON) return;
+
+        switch (parser->current.type) {
+            case TOKEN_CLASS:
+            case TOKEN_FUN:
+            case TOKEN_VAR:
+            case TOKEN_FOR:
+            case TOKEN_IF:
+            case TOKEN_WHILE:
+            case TOKEN_PRINT:
+            case TOKEN_RETURN:
+                return;
+            default: {
+                advance(parser);
+            }
+        }
+    }
+}
+
+static void defineVariable(Parser* parser, uint32_t global) {}
+
+static uint32_t identifierConstant(Parser* parser, Token* name) {
+    return makeConstant(parser, OBJ_VAL(copyString(parser->vm, name->start, name->length)));
+}
+
+static uint32_t parseVariable(Parser* parser, const char* errorMessage) {
+    consume(parser, TOKEN_IDENTIFIER, errorMessage);
+    return identifierConstant(parser, &parser->previous);
+}
+
+static void varDeclaration(Parser* parser) {
+    uint32_t global = parseVariable(parser, "Expect variable name.");
+
+    if (match(parser, TOKEN_EQUAL)) {
+        expression(parser);
+    } else {
+        emitByte(parser, OP_NIL);
+    }
+
+    consume(parser, TOKEN_SEMICOLON, "Expect ';' after variable declaration");
+    defineVariable(parser, global);
+}
+
+static void declaration(Parser* parser) {
+    if (match(parser, TOKEN_VAR)) {
+        varDeclaration(parser);
+    } else {
+        statement(parser);
+    }
+}
+
+static void statement(Parser* parser) {
+    if (match(parser, TOKEN_PRINT)) {
+        printStatement(parser);
+    } else {
+        expressionStatement(parser);
+    }
 }
 
 static void number(Parser* parser) {
@@ -263,8 +364,7 @@ bool compile(VM* vm, const char* source, Chunk* chunk) {
     parser.freeList = vm->freeList;
 
     advance(&parser);
-    expression(&parser);
-    consume(&parser, TOKEN_EOF, "Expect end of expression.");
+    while (!match(&parser, TOKEN_EOF)) declaration(&parser);
     endCompiler(&parser);
 
     return !parser.hadError;

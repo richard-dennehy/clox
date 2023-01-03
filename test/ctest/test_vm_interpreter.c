@@ -50,12 +50,12 @@ int testVmArithmetic() {
     checkFloatsEqual(result.as.number, expected); \
 } while(0)
 
-    RUN_TEST("-2", -2.0);
-    RUN_TEST("3 * 4", 12.0);
-    RUN_TEST("5 + 6", 11.0);
-    RUN_TEST("7 - 8", -1.0);
-    RUN_TEST("9 / 10", 0.9);
-    RUN_TEST("(-1 + 2) * 3 - -4", 7);
+    RUN_TEST("-2;", -2.0);
+    RUN_TEST("3 * 4;", 12.0);
+    RUN_TEST("5 + 6;", 11.0);
+    RUN_TEST("7 - 8;", -1.0);
+    RUN_TEST("9 / 10;", 0.9);
+    RUN_TEST("(-1 + 2) * 3 - -4;", 7);
 
 #undef RUN_TEST
     freeVM(&vm);
@@ -72,18 +72,18 @@ int testNil() {
     initMemory(&freeList, 16 * 1024);
     initVM(&freeList, &vm);
 
-    INTERPRET("nil");
+    INTERPRET("nil;");
     checkIntsEqual(vm.stack.values[0].type, VAL_NIL);
 
-    INTERPRET("nil == nil");
+    INTERPRET("nil == nil;");
     checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
     checkIntsEqual(STACK_HEAD.as.boolean, true);
 
-    INTERPRET("nil != nil");
+    INTERPRET("nil != nil;");
     checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
     checkIntsEqual(STACK_HEAD.as.boolean, false);
 
-    INTERPRET("!nil");
+    INTERPRET("!nil;");
     checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
     checkIntsEqual(STACK_HEAD.as.boolean, true);
 
@@ -100,31 +100,31 @@ int testBools() {
     initMemory(&freeList, 16 * 1024);
     initVM(&freeList, &vm);
 
-    INTERPRET("true");
+    INTERPRET("true;");
     checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
     checkIntsEqual(STACK_HEAD.as.boolean, true);
 
-    INTERPRET("false");
+    INTERPRET("false;");
     checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
     checkIntsEqual(STACK_HEAD.as.boolean, false);
 
-    INTERPRET("!true");
+    INTERPRET("!true;");
     checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
     checkIntsEqual(STACK_HEAD.as.boolean, false);
 
-    INTERPRET("!false");
+    INTERPRET("!false;");
     checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
     checkIntsEqual(STACK_HEAD.as.boolean, true);
 
-    INTERPRET("true == true");
+    INTERPRET("true == true;");
     checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
     checkIntsEqual(STACK_HEAD.as.boolean, true);
 
-    INTERPRET("false == false");
+    INTERPRET("false == false;");
     checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
     checkIntsEqual(STACK_HEAD.as.boolean, true);
 
-    INTERPRET("true == false");
+    INTERPRET("true == false;");
     checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
     checkIntsEqual(STACK_HEAD.as.boolean, false);
 
@@ -147,23 +147,23 @@ int testComparisons() {
     initMemory(&freeList, 16 * 1024);
     initVM(&freeList, &vm);
 
-    RUN_TEST("1 > 0", true);
-    RUN_TEST("1 >= 0", true);
-    RUN_TEST("1 == 0", false);
-    RUN_TEST("1 <= 0", false);
-    RUN_TEST("1 < 0", false);
+    RUN_TEST("1 > 0;", true);
+    RUN_TEST("1 >= 0;", true);
+    RUN_TEST("1 == 0;", false);
+    RUN_TEST("1 <= 0;", false);
+    RUN_TEST("1 < 0;", false);
 
-    RUN_TEST("1 > 1", false);
-    RUN_TEST("1 >= 1", true);
-    RUN_TEST("1 == 1", true);
-    RUN_TEST("1 <= 1", true);
-    RUN_TEST("1 < 1", false);
+    RUN_TEST("1 > 1;", false);
+    RUN_TEST("1 >= 1;", true);
+    RUN_TEST("1 == 1;", true);
+    RUN_TEST("1 <= 1;", true);
+    RUN_TEST("1 < 1;", false);
 
-    RUN_TEST("0 > 1", false);
-    RUN_TEST("0 >= 1", false);
-    RUN_TEST("0 == 1", false);
-    RUN_TEST("0 <= 1", true);
-    RUN_TEST("0 < 1", true);
+    RUN_TEST("0 > 1;", false);
+    RUN_TEST("0 >= 1;", false);
+    RUN_TEST("0 == 1;", false);
+    RUN_TEST("0 <= 1;", true);
+    RUN_TEST("0 < 1;", true);
 
     freeVM(&vm);
     freeMemory(&freeList);
@@ -179,24 +179,24 @@ int testStrings() {
     initMemory(&freeList, 16 * 1024);
     initVM(&freeList, &vm);
 
-    INTERPRET("\"st\" + \"ri\" + \"ng\"");
+    INTERPRET("\"st\" + \"ri\" + \"ng\";");
     checkIntsEqual(STACK_HEAD.type, VAL_OBJ);
     checkIntsEqual(AS_OBJ(STACK_HEAD)->type, OBJ_STRING);
     checkIntsEqual(AS_STRING(STACK_HEAD)->length, 6);
 
-    checkIntsEqual(interpret(&vm, "\"cannot add strings and numbers\" + 1.0"), INTERPRET_RUNTIME_ERROR);
-    checkIntsEqual(interpret(&vm, "1.0 + \"cannot add numbers and strings\""), INTERPRET_RUNTIME_ERROR);
+    checkIntsEqual(interpret(&vm, "\"cannot add strings and numbers\" + 1.0;"), INTERPRET_RUNTIME_ERROR);
+    checkIntsEqual(interpret(&vm, "1.0 + \"cannot add numbers and strings\";"), INTERPRET_RUNTIME_ERROR);
 
     // test interning/equality
-    INTERPRET("\"string\" == \"string\"");
+    INTERPRET("\"string\" == \"string\";");
     checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
     checkIntsEqual(AS_BOOL(STACK_HEAD), true);
 
-    INTERPRET("\"str\" + \"ing\" == \"string\"");
+    INTERPRET("\"str\" + \"ing\" == \"string\";");
     checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
     checkIntsEqual(AS_BOOL(STACK_HEAD), true);
 
-    INTERPRET("\"first\" == \"second\"");
+    INTERPRET("\"first\" == \"second\";");
     checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
     checkIntsEqual(AS_BOOL(STACK_HEAD), false);
 

@@ -57,7 +57,7 @@ static void writeLine(FreeList* freeList, Chunk* chunk, uint32_t line) {
 
 void writeChunk(FreeList* freeList, Chunk* chunk, uint8_t byte, uint32_t line) {
     if (chunk->capacity < chunk->count + 1) {
-        int32_t oldCapacity = chunk->capacity;
+        uint32_t oldCapacity = chunk->capacity;
         chunk->capacity = GROW_CAPACITY(oldCapacity);
         chunk->code = GROW_ARRAY(uint8_t, chunk->code, oldCapacity, chunk->capacity);
     }
@@ -67,7 +67,8 @@ void writeChunk(FreeList* freeList, Chunk* chunk, uint8_t byte, uint32_t line) {
     chunk->count++;
 }
 
-void writeConstant(FreeList* freeList, Chunk* chunk, Value value, uint32_t line) {
+// TODO delete
+uint32_t writeConstant(FreeList* freeList, Chunk* chunk, Value value, uint32_t line) {
     writeValue(freeList, &chunk->constants, value);
     uint32_t index = chunk->constants.count - 1;
 
@@ -82,6 +83,8 @@ void writeConstant(FreeList* freeList, Chunk* chunk, Value value, uint32_t line)
         writeChunk(freeList, chunk, (uint8_t) (index >> 8), line);
         writeChunk(freeList, chunk, (uint8_t) (index >> 0), line);
     }
+
+    return index;
 }
 
 uint32_t getLine(Chunk* chunk, uint32_t instructionIndex) {
