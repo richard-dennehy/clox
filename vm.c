@@ -62,6 +62,8 @@ static void concatenate(VM* vm) {
 
 static InterpretResult run(VM* vm) {
 #define READ_BYTE (*vm->ip++)
+// FIXME this is almost certainly backwards - test this
+#define READ_LONG ((READ_BYTE << 16) | (READ_BYTE << 8) | READ_BYTE)
 #define PEEK(distance) (vm->stack.values[vm->stack.count - 1 - distance])
 #define BINARY_OP(valueType, op) do { \
     if (!IS_NUMBER(PEEK(0)) || !IS_NUMBER(PEEK(1))) { \
@@ -84,7 +86,8 @@ static InterpretResult run(VM* vm) {
         printf("\n");
         disassembleInstruction(vm->chunk, (uint32_t) (vm->ip - vm->chunk->code));
 #endif
-        switch (READ_BYTE) {
+        uint8_t instruction;
+        switch (instruction = READ_BYTE) {
             case OP_PRINT:
                 printValue(pop(vm));
                 printf("\n");
@@ -125,27 +128,41 @@ static InterpretResult run(VM* vm) {
                 push(vm, NUMBER_VAL(-AS_NUMBER(pop(vm))));
                 break;
             }
-            case OP_CONSTANT: {
-                push(vm, vm->chunk->constants.values[READ_BYTE]);
-                break;
-            }
+            case OP_CONSTANT:
             case OP_CONSTANT_LONG: {
-                // FIXME this is almost certainly backwards - test this
-                uint32_t index = (READ_BYTE << 16) | (READ_BYTE << 8) | READ_BYTE;
+                uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
                 push(vm, vm->chunk->constants.values[index]);
                 break;
             }
-            case OP_DEFINE_GLOBAL: {
-                ObjString* name = AS_STRING(vm->chunk->constants.values[READ_BYTE]);
+            case OP_DEFINE_GLOBAL:
+            case OP_DEFINE_GLOBAL_LONG: {
+                uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
+                ObjString* name = AS_STRING(vm->chunk->constants.values[index]);
                 tableSet(&vm->globals, name, PEEK(0));
                 pop(vm);
                 break;
             }
-            case OP_DEFINE_GLOBAL_LONG: {
-                uint32_t index = (READ_BYTE << 16) | (READ_BYTE << 8) | READ_BYTE;
+            case OP_GET_GLOBAL:
+            case OP_GET_GLOBAL_LONG: {
+                uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
                 ObjString* name = AS_STRING(vm->chunk->constants.values[index]);
-                tableSet(&vm->globals, name, PEEK(0));
-                pop(vm);
+                Value value;
+                if (!tableGet(&vm->globals, name, &value)) {
+                    runtimeError(vm, "Undefined variable '%s'.", name->chars);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                push(vm, value);
+                break;
+            }
+            case OP_SET_GLOBAL:
+            case OP_SET_GLOBAL_LONG: {
+                uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
+                ObjString* name = AS_STRING(vm->chunk->constants.values[index]);
+                if (tableSet(&vm->globals, name, PEEK(0))) {
+                    tableDelete(&vm->globals, name);
+                    runtimeError(vm, "Undefined variable '%s'", name);
+                    return INTERPRET_RUNTIME_ERROR;
+                }
                 break;
             }
             case OP_NIL: {
@@ -183,6 +200,7 @@ static InterpretResult run(VM* vm) {
     return INTERPRET_OK;
 
 #undef READ_BYTE
+#undef READ_LONG
 #undef PEEK
 #undef BINARY_OP
 }

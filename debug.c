@@ -50,6 +50,14 @@ uint32_t disassembleInstruction(Chunk* chunk, uint32_t offset) {
             return constantInstruction("OP_DEFINE_GLOBAL", chunk, offset);
         case OP_DEFINE_GLOBAL_LONG:
             return longConstantInstruction("OP_DEFINE_GLOBAL_LONG", chunk, offset);
+        case OP_GET_GLOBAL:
+            return constantInstruction("OP_GET_GLOBAL", chunk, offset);
+        case OP_GET_GLOBAL_LONG:
+            return constantInstruction("OP_GET_GLOBAL_LONG", chunk, offset);
+        case OP_SET_GLOBAL:
+            return constantInstruction("OP_SET_GLOBAL", chunk, offset);
+        case OP_SET_GLOBAL_LONG:
+            return constantInstruction("OP_SET_GLOBAL_LONG", chunk, offset);
         case OP_ADD:
             return simpleInstruction("OP_ADD", offset);
         case OP_SUBTRACT:

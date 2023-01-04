@@ -10,6 +10,10 @@ typedef enum {
     OP_CONSTANT_LONG,
     OP_DEFINE_GLOBAL,
     OP_DEFINE_GLOBAL_LONG,
+    OP_GET_GLOBAL,
+    OP_GET_GLOBAL_LONG,
+    OP_SET_GLOBAL,
+    OP_SET_GLOBAL_LONG,
     OP_NIL,
     OP_TRUE,
     OP_FALSE,
@@ -46,5 +50,9 @@ void freeChunk(FreeList* freeList, Chunk* chunk);
 void writeChunk(FreeList* freeList, Chunk* chunk, uint8_t byte, uint32_t line);
 uint32_t writeConstant(FreeList* freeList, Chunk* chunk, Value value, uint32_t line);
 uint32_t getLine(Chunk* chunk, uint32_t instructionIndex);
+
+static inline bool isWide(OpCode op) {
+    return op == OP_GET_GLOBAL_LONG || op == OP_SET_GLOBAL_LONG || op == OP_CONSTANT_LONG || op == OP_DEFINE_GLOBAL_LONG;
+}
 
 #endif //CLOX_CHUNK_H
