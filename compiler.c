@@ -20,7 +20,7 @@ typedef enum {
     PREC_PRIMARY,
 } Precedence;
 
-typedef void (* ParseFn)(Parser*);
+typedef void (* ParseFn)(Parser* parser, bool canAssign);
 
 typedef struct {
     ParseFn prefix;
@@ -99,6 +99,16 @@ static void statement(Parser* parser);
 
 static void declaration(Parser* parser);
 
+static bool check(Parser* parser, TokenType type) {
+    return parser->current.type == type;
+}
+
+static bool match(Parser* parser, TokenType type) {
+    if (!check(parser, type)) return false;
+    advance(parser);
+    return true;
+}
+
 static void parsePrecedence(Parser* parser, Precedence precedence) {
     advance(parser);
     ParseFn prefixRule = getRule(parser->previous.type)->prefix;
@@ -107,13 +117,18 @@ static void parsePrecedence(Parser* parser, Precedence precedence) {
         return;
     }
 
-    prefixRule(parser);
+    bool canAssign = precedence <= PREC_ASSIGNMENT;
+    prefixRule(parser, canAssign);
 
     while (precedence <= getRule(parser->current.type)->precedence) {
         advance(parser);
         ParseFn infixRule = getRule(parser->previous.type)->infix;
         assert(infixRule || !"Attempting to parse non-infix operator as infix");
-        infixRule(parser);
+        infixRule(parser, canAssign);
+    }
+
+    if (canAssign && match(parser, TOKEN_EQUAL)) {
+        errorAt(parser, &parser->previous, "Invalid assignment target.");
     }
 }
 
@@ -128,16 +143,6 @@ static void consume(Parser* parser, TokenType expected, const char* message) {
     }
 
     errorAt(parser, &parser->current, message);
-}
-
-static bool check(Parser* parser, TokenType type) {
-    return parser->current.type == type;
-}
-
-static bool match(Parser* parser, TokenType type) {
-    if (!check(parser, type)) return false;
-    advance(parser);
-    return true;
 }
 
 static void printStatement(Parser* parser) {
@@ -219,22 +224,22 @@ static void statement(Parser* parser) {
     }
 }
 
-static void number(Parser* parser) {
+static void number(Parser* parser, bool canAssign) {
     Value value = NUMBER_VAL(strtod(parser->previous.start, NULL));
     emitConstant(parser, value);
 }
 
-static void string(Parser* parser) {
+static void string(Parser* parser, bool canAssign) {
     Value value = OBJ_VAL(copyString(parser->vm, parser->previous.start + 1, parser->previous.length - 2));
     emitConstant(parser, value);
 }
 
-static void grouping(Parser* parser) {
+static void grouping(Parser* parser, bool canAssign) {
     expression(parser);
     consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
 
-static void unary(Parser* parser) {
+static void unary(Parser* parser, bool canAssign) {
     TokenType operator = parser->previous.type;
     parsePrecedence(parser, PREC_UNARY);
 
@@ -250,7 +255,7 @@ static void unary(Parser* parser) {
     }
 }
 
-static void binary(Parser* parser) {
+static void binary(Parser* parser, bool canAssign) {
     TokenType operator = parser->previous.type;
     ParseRule* rule = getRule(operator);
     parsePrecedence(parser, (Precedence) (rule->precedence + 1));
@@ -291,7 +296,7 @@ static void binary(Parser* parser) {
     }
 }
 
-static void literal(Parser* parser) {
+static void literal(Parser* parser, bool canAssign) {
     switch (parser->previous.type) {
         case TOKEN_NIL:
             emitByte(parser, OP_NIL);
@@ -308,9 +313,9 @@ static void literal(Parser* parser) {
     }
 }
 
-static void namedVariable(Parser* parser, Token name) {
+static void namedVariable(Parser* parser, Token name, bool canAssign) {
     uint32_t argument = identifierConstant(parser, &name);
-    if (match(parser, TOKEN_EQUAL)) {
+    if (canAssign && match(parser, TOKEN_EQUAL)) {
         expression(parser);
         emitVariableWidth(parser, OP_SET_GLOBAL, OP_SET_GLOBAL_LONG, argument);
     } else {
@@ -318,8 +323,8 @@ static void namedVariable(Parser* parser, Token name) {
     }
 }
 
-static void variable(Parser* parser) {
-    namedVariable(parser, parser->previous);
+static void variable(Parser* parser, bool canAssign) {
+    namedVariable(parser, parser->previous, canAssign);
 }
 
 ParseRule rules[] = {
