@@ -205,6 +205,66 @@ int testStrings() {
     return err_code;
 }
 
+int testGlobals() {
+    int err_code = TEST_SUCCEEDED;
+
+    FreeList freeList;
+    VM vm;
+    initMemory(&freeList, 256 * 1024);
+    initVM(&freeList, &vm);
+
+    INTERPRET("var uninitialisedGlobal;");
+    checkIntsEqual(STACK_HEAD.type, VAL_NIL);
+
+    INTERPRET("uninitialisedGlobal = 5;");
+    checkIntsEqual(STACK_HEAD.type, VAL_NUMBER);
+    checkIntsEqual(AS_NUMBER(STACK_HEAD), 5);
+
+    INTERPRET("var initialisedGlobal = false;");
+    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
+    checkIntsEqual(AS_BOOL(STACK_HEAD), false);
+
+    char* chapterExample = "var breakfast = \"beignets\";\n"
+                           "var beverage = \"cafe au lait\";\n"
+                           "breakfast = \"beignets with \" + beverage;\n"
+                           "\n"
+                           "print breakfast;";
+    INTERPRET(chapterExample);
+    checkIntsEqual(STACK_HEAD.type, VAL_OBJ);
+    checkIntsEqual(AS_OBJ(STACK_HEAD)->type, OBJ_STRING);
+
+    INTERPRET("breakfast == \"beignets with cafe au lait\";");
+    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
+    checkIntsEqual(AS_BOOL(STACK_HEAD), true);
+
+    // check wide instructions
+
+    // more space than needed, but calculating the correct amount is too much effort
+    char source[17 * 128 + 6] = "";
+    for (int i = 0; i < 129; i++) {
+        char line[17];
+        sprintf(line, "var g%d = %d;\n", i, i);
+        strcat(source, line);
+    }
+    strcat(source, "g128;");
+
+    INTERPRET(source);
+    checkIntsEqual(STACK_HEAD.type, VAL_NUMBER);
+    checkIntsEqual(AS_NUMBER(STACK_HEAD), 128);
+
+    INTERPRET("g0;");
+    checkIntsEqual(STACK_HEAD.type, VAL_NUMBER);
+    checkIntsEqual(AS_NUMBER(STACK_HEAD), 0);
+
+    INTERPRET("g1;");
+    checkIntsEqual(STACK_HEAD.type, VAL_NUMBER);
+    checkIntsEqual(AS_NUMBER(STACK_HEAD), 1);
+
+    freeVM(&vm);
+    freeMemory(&freeList);
+    return err_code;
+}
+
 int main() {
-    return testVmStack() | testVmArithmetic() | testNil() | testBools() | testComparisons() | testStrings();
+    return testGlobals() | testVmStack() | testVmArithmetic() | testNil() | testBools() | testComparisons() | testStrings();
 }

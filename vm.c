@@ -62,7 +62,6 @@ static void concatenate(VM* vm) {
 
 static InterpretResult run(VM* vm) {
 #define READ_BYTE (*vm->ip++)
-// FIXME this is almost certainly backwards - test this
 #define READ_LONG ((READ_BYTE << 16) | (READ_BYTE << 8) | READ_BYTE)
 #define PEEK(distance) (vm->stack.values[vm->stack.count - 1 - distance])
 #define BINARY_OP(valueType, op) do { \
