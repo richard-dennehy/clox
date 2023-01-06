@@ -47,42 +47,6 @@ int testWriteChunk() {
     return err_code;
 }
 
-int testWriteConstant() {
-    int err_code = TEST_SUCCEEDED;
-
-    FreeList freeList;
-    initMemory(&freeList, 256 * 1024);
-    Chunk chunk;
-    initChunk(&chunk);
-
-    writeConstant(&freeList, &chunk, NUMBER_VAL(123), 1);
-    checkIntsEqual(chunk.count, 2);
-    assertNotNull(chunk.code);
-    checkIntsEqual(chunk.code[0], OP_CONSTANT);
-    checkIntsEqual(chunk.code[1], 0);
-
-    checkIntsEqual(chunk.constants.count, 1);
-    assertNotNull(chunk.constants.values);
-    checkFloatsEqual(AS_NUMBER(chunk.constants.values[0]), 123);
-
-    for (int i = 0; i < 256; i++) {
-        writeConstant(&freeList, &chunk, NUMBER_VAL(i * 2), i + 1);
-    }
-
-    checkIntsEqual(chunk.constants.count, 257);
-    checkIntsEqual(chunk.count, 516);
-    assertNotNull(chunk.code);
-    checkIntsEqual(chunk.code[512], OP_CONSTANT_LONG);
-    checkIntsEqual(chunk.code[513], 0);
-    checkIntsEqual(chunk.code[514], 1);
-    checkIntsEqual(chunk.code[515], 0);
-
-    freeChunk(&freeList, &chunk);
-    freeMemory(&freeList);
-
-    return err_code;
-}
-
 int main() {
-    return testWriteChunk() | testWriteConstant();
+    return testWriteChunk();
 }

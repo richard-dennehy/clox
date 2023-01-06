@@ -32,6 +32,12 @@ static uint32_t longConstantInstruction(const char* name, Chunk* chunk, uint32_t
     return offset + 4;
 }
 
+static uint32_t byteInstruction(const char* name, Chunk* chunk, uint32_t offset) {
+    uint8_t slot = chunk->code[offset + 1];
+    printf("%-16s %4d\n", name, slot);
+    return offset + 2;
+}
+
 uint32_t disassembleInstruction(Chunk* chunk, uint32_t offset) {
     printf("%04d ", offset);
     if (offset > 0 && getLine(chunk, offset) == getLine(chunk, offset - 1)) {
@@ -58,6 +64,10 @@ uint32_t disassembleInstruction(Chunk* chunk, uint32_t offset) {
             return constantInstruction("OP_SET_GLOBAL", chunk, offset);
         case OP_SET_GLOBAL_LONG:
             return longConstantInstruction("OP_SET_GLOBAL_LONG", chunk, offset);
+        case OP_GET_LOCAL:
+            return byteInstruction("OP_GET_LOCAL", chunk, offset);
+        case OP_SET_LOCAL:
+            return byteInstruction("OP_SET_LOCAL", chunk, offset);
         case OP_ADD:
             return simpleInstruction("OP_ADD", offset);
         case OP_SUBTRACT:

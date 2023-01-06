@@ -67,26 +67,6 @@ void writeChunk(FreeList* freeList, Chunk* chunk, uint8_t byte, uint32_t line) {
     chunk->count++;
 }
 
-// TODO delete
-uint32_t writeConstant(FreeList* freeList, Chunk* chunk, Value value, uint32_t line) {
-    writeValue(freeList, &chunk->constants, value);
-    uint32_t index = chunk->constants.count - 1;
-
-    if (index <= 255) {
-        writeChunk(freeList, chunk, OP_CONSTANT, line);
-        writeChunk(freeList, chunk, index, line);
-    } else {
-        assert(index < 1 << 24);
-
-        writeChunk(freeList, chunk, OP_CONSTANT_LONG, line);
-        writeChunk(freeList, chunk, (uint8_t) (index >> 16), line);
-        writeChunk(freeList, chunk, (uint8_t) (index >> 8), line);
-        writeChunk(freeList, chunk, (uint8_t) (index >> 0), line);
-    }
-
-    return index;
-}
-
 uint32_t getLine(Chunk* chunk, uint32_t instructionIndex) {
     uint32_t line = UINT32_MAX;
     for (Line* nextLine = chunk->firstLine; nextLine; nextLine = nextLine->next) {

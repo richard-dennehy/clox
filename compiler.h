@@ -5,12 +5,15 @@
 #include "scanner.h"
 #include "vm.h"
 
+struct Compiler;
+
 typedef struct {
     Token current;
     Token previous;
     Scanner* scanner;
     Chunk* compilingChunk;
     VM* vm;
+    struct Compiler* compiler;
     FreeList* freeList;
     bool hadError;
     bool panicMode;

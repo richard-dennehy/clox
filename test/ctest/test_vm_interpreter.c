@@ -239,8 +239,7 @@ int testGlobals() {
 
     // check wide instructions
 
-    // more space than needed, but calculating the correct amount is too much effort
-    char source[17 * 128 + 6] = "";
+    char source[1850] = "";
     for (int i = 0; i < 129; i++) {
         char line[17];
         sprintf(line, "var g%d = %d;\n", i, i);

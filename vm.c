@@ -164,6 +164,16 @@ static InterpretResult run(VM* vm) {
                 }
                 break;
             }
+            case OP_GET_LOCAL: {
+                uint32_t index = READ_BYTE;
+                push(vm, vm->stack.values[index]);
+                break;
+            }
+            case OP_SET_LOCAL: {
+                uint32_t index = READ_BYTE;
+                vm->stack.values[index] = PEEK(0);
+                break;
+            }
             case OP_NIL: {
                 push(vm, NIL_VAL);
                 break;
