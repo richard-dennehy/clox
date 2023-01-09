@@ -219,7 +219,7 @@ static void declareVariable(Parser* parser) {
     if (compiler->scopeDepth == 0) return;
 
     Token* name = &parser->previous;
-    for (int i = (int) compiler->localCount - 1; i >= 0; i--) {
+    for (int32_t i = (int32_t) compiler->localCount - 1; i >= 0; i--) {
         Local* local = &compiler->locals[i];
         if (local->depth != -1 && local->depth < compiler->scopeDepth) {
             break;
@@ -406,7 +406,7 @@ static void literal(Parser* parser, bool canAssign) {
 }
 
 static int32_t resolveLocal(Parser* parser, Compiler* compiler, Token* name) {
-    for (int32_t i = (int32_t) compiler->localCount - 1; i >= 0; i++) {
+    for (int32_t i = (int32_t) compiler->localCount - 1; i >= 0; i--) {
         Local* local = &compiler->locals[i];
         if (identifiersEqual(name, &local->name)) {
             if (local->depth == -1) {

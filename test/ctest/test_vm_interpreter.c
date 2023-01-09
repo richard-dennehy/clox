@@ -264,6 +264,58 @@ int testGlobals() {
     return err_code;
 }
 
+int testLocals() {
+    int err_code = TEST_SUCCEEDED;
+    FreeList freeList;
+    VM vm;
+    initMemory(&freeList, 256 * 1024);
+    initVM(&freeList, &vm);
+
+    // basic local declaration
+    INTERPRET("{ var a = 10; }");
+    checkIntsEqual(STACK_HEAD.type, VAL_NUMBER);
+    checkIntsEqual(AS_NUMBER(STACK_HEAD), 10);
+
+    // falls out of scope after block closed
+    checkIntsEqual(interpret(&vm, "a;"), INTERPRET_RUNTIME_ERROR);
+
+    // local referencing global
+    INTERPRET("var global = 5; { var local = global + 10; }");
+    checkIntsEqual(STACK_HEAD.type, VAL_NUMBER);
+    checkIntsEqual(AS_NUMBER(STACK_HEAD), 15);
+
+    // reassigning local
+    INTERPRET("{ var a = 10; a = 20; }");
+    checkIntsEqual(STACK_HEAD.type, VAL_NUMBER);
+    checkIntsEqual(AS_NUMBER(STACK_HEAD), 20);
+
+    // shadowing - not sure how best to demonstrate this works properly without e.g. being able to intercept print calls
+    INTERPRET("var a = 1; { var a = 2; { var a = 3; } a; }");
+    checkIntsEqual(STACK_HEAD.type, VAL_NUMBER);
+    checkIntsEqual(AS_NUMBER(STACK_HEAD), 2);
+
+    // can't refer to uninitialised variable in its initialiser
+    checkIntsEqual(interpret(&vm, "{ var a = a; }"), INTERPRET_COMPILE_ERROR);
+
+    // declaring a lot of locals
+    char source[4161] = "{\n";
+    for (int i = 0; i < 256; i++) {
+        char line[18];
+        sprintf(line, "\tvar l%d = %d;\n", i, i);
+        strcat(source, line);
+    }
+    // the first declared local ends up at the top of the stack after block is closed
+    strcat(source, "\tl0 = l1 + l128 + l255; \n}\n");
+
+    INTERPRET(source);
+    checkIntsEqual(STACK_HEAD.type, VAL_NUMBER);
+    checkIntsEqual(AS_NUMBER(STACK_HEAD), 1 + 128 + 255);
+
+    freeVM(&vm);
+    freeMemory(&freeList);
+    return err_code;
+}
+
 int main() {
-    return testGlobals() | testVmStack() | testVmArithmetic() | testNil() | testBools() | testComparisons() | testStrings();
+    return testLocals() | testGlobals() | testVmStack() | testVmArithmetic() | testNil() | testBools() | testComparisons() | testStrings();
 }
