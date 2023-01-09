@@ -264,12 +264,25 @@ int testGlobals() {
     return err_code;
 }
 
+static char printLog[64][16];
+static int printed = 0;
+int fakePrintf(const char* format, ...) {
+    va_list args;
+    va_start(args, format);
+    int result = vsnprintf(printLog[printed++], 16, format, args);
+    va_end(args);
+    return result;
+}
+
 int testLocals() {
     int err_code = TEST_SUCCEEDED;
     FreeList freeList;
     VM vm;
     initMemory(&freeList, 256 * 1024);
     initVM(&freeList, &vm);
+
+    vm.print = fakePrintf;
+    INTERPRET("print 1 + 2;");
 
     // basic local declaration
     INTERPRET("{ var a = 10; }");
@@ -290,6 +303,7 @@ int testLocals() {
     checkIntsEqual(AS_NUMBER(STACK_HEAD), 20);
 
     // shadowing - not sure how best to demonstrate this works properly without e.g. being able to intercept print calls
+    // TODO add some way to intercept print calls, e.g. create a member of VM that sends print calls to stdout/stderr, and replace with an in-memory fake for tests
     INTERPRET("var a = 1; { var a = 2; { var a = 3; } a; }");
     checkIntsEqual(STACK_HEAD.type, VAL_NUMBER);
     checkIntsEqual(AS_NUMBER(STACK_HEAD), 2);

@@ -23,7 +23,7 @@ struct ObjString {
 
 ObjString* copyString(VM* vm, const char* chars, uint32_t length);
 ObjString* takeString(VM* vm, char* chars, uint32_t length);
-void printObject(Value value);
+void printObject(Printer* print, Value value);
 void freeObjects(VM* vm);
 
 static inline bool isObjType(Value value, ObjType type) {

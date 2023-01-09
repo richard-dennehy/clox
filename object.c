@@ -42,10 +42,10 @@ ObjString* copyString(VM* vm, const char* chars, uint32_t length) {
     return allocateString(vm, heapChars, length, hash);
 }
 
-void printObject(Value value) {
+void printObject(Printer* print, Value value) {
     switch (OBJ_TYPE(value)) {
         case OBJ_STRING:
-            printf("%s", AS_CSTRING(value));
+            print("%s", AS_CSTRING(value));
             break;
     }
 }

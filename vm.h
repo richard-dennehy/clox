@@ -12,6 +12,7 @@ typedef struct {
     Table globals;
     Table strings;
     Obj* objects;
+    Printer* print;
 } VM;
 
 typedef enum {

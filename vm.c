@@ -19,6 +19,7 @@ void initVM(FreeList* freeList, VM* vm) {
     vm->objects = NULL;
     initTable(freeList, &vm->globals);
     initTable(freeList, &vm->strings);
+    vm->print = printf;
 }
 
 void freeVM(VM* vm) {
@@ -79,7 +80,7 @@ static InterpretResult run(VM* vm) {
         printf("          ");
         for (uint32_t i = 0; i < vm->stack.count; i++) {
             printf("[");
-            printValue(vm->stack.values[i]);
+            printValue(printf, vm->stack.values[i]);
             printf("]");
         }
         printf("\n");
@@ -88,7 +89,7 @@ static InterpretResult run(VM* vm) {
         uint8_t instruction;
         switch (instruction = READ_BYTE) {
             case OP_PRINT:
-                printValue(pop(vm));
+                printValue(vm->print, pop(vm));
                 printf("\n");
                 break;
             case OP_POP:

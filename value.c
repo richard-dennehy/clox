@@ -24,19 +24,19 @@ void freeValueArray(FreeList* freeList, ValueArray* array) {
     initValueArray(array);
 }
 
-void printValue(Value value) {
+void printValue(Printer* print, Value value) {
     switch (value.type) {
         case VAL_BOOL:
-            printf(AS_BOOL(value) ? "true" : "false");
+            print(AS_BOOL(value) ? "true" : "false");
             break;
         case VAL_NIL:
-            printf("nil");
+            print("nil");
             break;
         case VAL_NUMBER:
-            printf("%g", AS_NUMBER(value));
+            print("%g", AS_NUMBER(value));
             break;
         case VAL_OBJ:
-            printObject(value);
+            printObject(print, value);
             break;
     }
 }
