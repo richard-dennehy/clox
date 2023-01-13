@@ -47,6 +47,16 @@
         }                 \
     } while(0)
 
+#define checkStringsEqual(LHS, RHS) \
+    do {                            \
+        const char* lhs = (LHS);                                \
+        const char* rhs = (RHS);    \
+        if (strlen(lhs) != strlen(rhs) || memcmp(lhs, rhs, strlen(lhs)) != 0) { \
+            fprintf(stderr, "\n\033[1;31mAssertion failed; %s (%s) != %s (%s) @ line [%d] file [%s]\n\033[0m", #LHS, lhs, #RHS, rhs, __LINE__, __FILE__); \
+            err_code = TEST_FAILED;                                     \
+        }                                \
+    } while(0)
+
 #define assertNotNull(ptr) \
     do {                   \
         if (!(ptr)) {      \
