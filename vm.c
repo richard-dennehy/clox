@@ -165,13 +165,15 @@ static InterpretResult run(VM* vm) {
                 }
                 break;
             }
-            case OP_GET_LOCAL: {
-                uint32_t index = READ_BYTE;
+            case OP_GET_LOCAL:
+            case OP_GET_LOCAL_LONG: {
+                uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
                 push(vm, vm->stack.values[index]);
                 break;
             }
-            case OP_SET_LOCAL: {
-                uint32_t index = READ_BYTE;
+            case OP_SET_LOCAL:
+            case OP_SET_LOCAL_LONG: {
+                uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
                 vm->stack.values[index] = PEEK(0);
                 break;
             }

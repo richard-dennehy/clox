@@ -34,10 +34,35 @@ typedef struct {
     int32_t depth;
 } Local;
 
+typedef struct {
+    uint32_t capacity;
+    uint32_t count;
+    Local* locals;
+} LocalArray;
+
+static void initLocalArray(LocalArray* array) {
+    array->locals = NULL;
+    array->capacity = 0;
+    array->count = 0;
+}
+
+static void writeLocal(FreeList* freeList, LocalArray* array, Local local) {
+    if (array->capacity < array->count + 1) {
+        uint32_t oldCapacity = array->capacity;
+        array->capacity = GROW_CAPACITY(array->capacity);
+        array->locals = GROW_ARRAY(Local, array->locals, oldCapacity, array->capacity);
+    }
+
+    array->locals[array->count++] = local;
+}
+
+static void freeLocalArray(FreeList* freeList, LocalArray* array) {
+    FREE_ARRAY(Value, array->locals, array->capacity);
+    initLocalArray(array);
+}
+
 typedef struct Compiler {
-    // TODO make this dynamic
-    Local locals[UINT8_COUNT];
-    uint32_t localCount;
+    LocalArray localArray;
     uint32_t scopeDepth;
 } Compiler;
 
@@ -199,14 +224,12 @@ static void synchronise(Parser* parser) {
 
 static void addLocal(Parser* parser, Token name) {
     Compiler* compiler = parser->compiler;
-    if (compiler->localCount == UINT8_COUNT) {
-        error(parser, "Too many local variables in function.");
-        return;
-    }
 
-    Local* local = &compiler->locals[compiler->localCount++];
-    local->name = name;
-    local->depth = -1;
+    Local local = {
+            .name = name,
+            .depth = -1,
+    };
+    writeLocal(parser->freeList, &compiler->localArray, local);
 }
 
 static bool identifiersEqual(Token* a, Token* b) {
@@ -219,8 +242,8 @@ static void declareVariable(Parser* parser) {
     if (compiler->scopeDepth == 0) return;
 
     Token* name = &parser->previous;
-    for (int32_t i = (int32_t) compiler->localCount - 1; i >= 0; i--) {
-        Local* local = &compiler->locals[i];
+    for (int32_t i = (int32_t) compiler->localArray.count - 1; i >= 0; i--) {
+        Local* local = &compiler->localArray.locals[i];
         if (local->depth != -1 && local->depth < compiler->scopeDepth) {
             break;
         }
@@ -234,7 +257,7 @@ static void declareVariable(Parser* parser) {
 
 static void markInitialised(Parser* parser) {
     Compiler* compiler = parser->compiler;
-    compiler->locals[compiler->localCount - 1].depth = (int32_t) compiler->scopeDepth;
+    compiler->localArray.locals[compiler->localArray.count - 1].depth = (int32_t) compiler->scopeDepth;
 }
 
 static void defineVariable(Parser* parser, uint32_t global) {
@@ -290,9 +313,9 @@ static void endScope(Parser* parser) {
     Compiler* compiler = parser->compiler;
     compiler->scopeDepth--;
 
-    while (compiler->localCount > 0 && compiler->locals[compiler->localCount - 1].depth > compiler->scopeDepth) {
+    while (compiler->localArray.count > 0 && compiler->localArray.locals[compiler->localArray.count - 1].depth > compiler->scopeDepth) {
         emitByte(parser, OP_POP);
-        compiler->localCount--;
+        compiler->localArray.count--;
     }
 }
 
@@ -406,8 +429,8 @@ static void literal(Parser* parser, bool canAssign) {
 }
 
 static int32_t resolveLocal(Parser* parser, Compiler* compiler, Token* name) {
-    for (int32_t i = (int32_t) compiler->localCount - 1; i >= 0; i--) {
-        Local* local = &compiler->locals[i];
+    for (int32_t i = (int32_t) compiler->localArray.count - 1; i >= 0; i--) {
+        Local* local = &compiler->localArray.locals[i];
         if (identifiersEqual(name, &local->name)) {
             if (local->depth == -1) {
                 error(parser, "Can't read local variable in its own initialiser.");
@@ -424,11 +447,10 @@ static void namedVariable(Parser* parser, Token name, bool canAssign) {
 
     int32_t argument = resolveLocal(parser, parser->compiler, &name);
     if (argument != -1) {
-        // TODO need to fix this after extending max Local count
         getOp = OP_GET_LOCAL;
-        getOpLong = OP_GET_LOCAL;
+        getOpLong = OP_GET_LOCAL_LONG;
         setOp = OP_SET_LOCAL;
-        setOpLong = OP_SET_LOCAL;
+        setOpLong = OP_SET_LOCAL_LONG;
     } else {
         argument = (int32_t) identifierConstant(parser, &name);
         getOp = OP_GET_GLOBAL;
@@ -505,7 +527,7 @@ static void endCompiler(Parser* parser) {
 }
 
 void initCompiler(Compiler* compiler) {
-    compiler->localCount = 0;
+    initLocalArray(&compiler->localArray);
     compiler->scopeDepth = 0;
 }
 

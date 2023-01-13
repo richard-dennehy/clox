@@ -315,17 +315,17 @@ int testLocals() {
     checkIntsEqual(interpret(&vm, "{ var a = a; }"), INTERPRET_COMPILE_ERROR);
 
     // declaring a lot of locals
-    char source[4161] = "{\n";
-    for (int i = 0; i < 256; i++) {
+    char source[4179] = "{\n";
+    for (int i = 0; i < 257; i++) {
         char line[18];
         sprintf(line, "\tvar l%d = %d;\n", i, i);
         strcat(source, line);
     }
-    strcat(source, "\tprint l1 + l128 + l255; \n}\n");
+    strcat(source, "\tprint l1 + l128 + l256; \n}\n");
 
     INTERPRET(source);
     checkIntsEqual(printed, 4);
-    checkStringsEqual(printLog[3], "384");
+    checkStringsEqual(printLog[3], "385");
 
     freeVM(&vm);
     freeMemory(&freeList);
