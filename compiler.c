@@ -337,8 +337,8 @@ static void emitLoop(Parser* parser, uint32_t loopStart) {
     uint32_t offset = currentChunk(parser)->count - loopStart + 2;
     if (offset > UINT16_MAX) error(parser, "Loop body too large.");
 
-    emitByte(parser, (uint8_t) (loopStart >> 8));
-    emitByte(parser, (uint8_t) loopStart);
+    emitByte(parser, (uint8_t) (offset >> 8));
+    emitByte(parser, (uint8_t) offset);
 }
 
 static void ifStatement(Parser* parser) {

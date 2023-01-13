@@ -3,13 +3,14 @@
 
 #define INTERPRET(source) assert(interpret(&vm, source) == INTERPRET_OK)
 #define STACK_HEAD vm.stack.values[0]
-static char printLog[64][32];
+static char printLog[32][64];
 static int printed = 0;
+
 int fakePrintf(const char* format, ...) {
-    assert(printed < 64 || !"Too many things printed");
+    assert(printed < 32 || !"Too many things printed");
     va_list args;
     va_start(args, format);
-    int result = vsnprintf(printLog[printed++], 32, format, args);
+    int result = vsnprintf(printLog[printed++], 64, format, args);
     va_end(args);
     return result;
 }
@@ -332,6 +333,70 @@ int testLocals() {
     return err_code;
 }
 
+int testControlFlow() {
+    int err_code = TEST_SUCCEEDED;
+    FreeList freeList;
+    VM vm;
+    initMemory(&freeList, 256 * 1024);
+    initVM(&freeList, &vm);
+    resetPrintLog();
+    vm.print = fakePrintf;
+
+    INTERPRET("if (true) { print \"simple if\"; }");
+    checkIntsEqual(printed, 1);
+    checkStringsEqual(printLog[0], "simple if");
+
+    INTERPRET("if (false) { print \"don't execute this\"; }");
+    checkIntsEqual(printed, 1);
+
+    INTERPRET("if (true) { print \"if branch is taken\"; } else { print \"else branch is not\"; }");
+    checkIntsEqual(printed, 2);
+    checkStringsEqual(printLog[1], "if branch is taken");
+
+    INTERPRET("if (false) { print \"if branch is not taken\"; } else { print \"else branch is\"; }");
+    checkIntsEqual(printed, 3);
+    checkStringsEqual(printLog[2], "else branch is");
+
+    INTERPRET("var done = false; while (!done) { print \"simple while\"; done = true; } ");
+    checkIntsEqual(printed, 4);
+    checkStringsEqual(printLog[3], "simple while");
+
+    INTERPRET("while (false) { print \"this shouldn't happen\"; }");
+    checkIntsEqual(printed, 4);
+
+    INTERPRET("var i = 0; while (i < 3) { print i; i = i + 1; }");
+    checkIntsEqual(printed, 7);
+    checkStringsEqual(printLog[4], "0");
+    checkStringsEqual(printLog[5], "1");
+    checkStringsEqual(printLog[6], "2");
+
+    // TODO test infinite for loops i.e. `for (;;)` once there's a way to break out
+    INTERPRET("var done = false; for (; !done;) { print \"for initialiser and increment are optional\"; done = true; }");
+    checkIntsEqual(printed, 8);
+    checkStringsEqual(printLog[7], "for initialiser and increment are optional");
+
+    INTERPRET("var i = 0; for (; i < 3; i = i + 1) { print \"for initialiser is optional\"; }");
+    checkIntsEqual(printed, 11);
+    checkStringsEqual(printLog[8], "for initialiser is optional");
+    checkStringsEqual(printLog[9], "for initialiser is optional");
+    checkStringsEqual(printLog[10], "for initialiser is optional");
+
+    INTERPRET("var i = 100; for (i = 0; i < 3; i = i + 1) { print \"for initialiser doesn't need to be a var declaration\"; }");
+    checkIntsEqual(printed, 14);
+    checkStringsEqual(printLog[11], "for initialiser doesn't need to be a var declaration");
+
+    INTERPRET("for (var i = 0; i < 3; i = i + 1) { print i; }");
+    checkIntsEqual(printed, 17);
+    checkStringsEqual(printLog[14], "0");
+    checkStringsEqual(printLog[15], "1");
+    checkStringsEqual(printLog[16], "2");
+
+    freeVM(&vm);
+    freeMemory(&freeList);
+    return err_code;
+}
+
 int main() {
-    return testLocals() | testGlobals() | testVmStack() | testVmArithmetic() | testNil() | testBools() | testComparisons() | testStrings();
+    return testControlFlow() | testLocals() | testGlobals() | testVmStack() | testVmArithmetic() | testNil() |
+           testBools() | testComparisons() | testStrings();
 }
