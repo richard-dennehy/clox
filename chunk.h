@@ -33,6 +33,9 @@ typedef enum {
     OP_POP,
     OP_PRINT,
     OP_RETURN,
+    OP_JUMP,
+    OP_JUMP_IF_FALSE,
+    OP_LOOP,
 } OpCode;
 
 typedef struct Line {

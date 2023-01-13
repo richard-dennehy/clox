@@ -187,38 +187,18 @@ static void consume(Parser* parser, TokenType expected, const char* message) {
     errorAt(parser, &parser->current, message);
 }
 
-static void printStatement(Parser* parser) {
-    expression(parser);
-    consume(parser, TOKEN_SEMICOLON, "Expect ';' after value.");
-    emitByte(parser, OP_PRINT);
+static void beginScope(Parser* parser) {
+    parser->compiler->scopeDepth++;
 }
 
-static void expressionStatement(Parser* parser) {
-    expression(parser);
-    consume(parser, TOKEN_SEMICOLON, "Expect ';' after value.");
-    emitByte(parser, OP_POP);
-}
+static void endScope(Parser* parser) {
+    Compiler* compiler = parser->compiler;
+    compiler->scopeDepth--;
 
-static void synchronise(Parser* parser) {
-    parser->panicMode = false;
-
-    while (parser->current.type != TOKEN_EOF) {
-        if (parser->previous.type == TOKEN_SEMICOLON) return;
-
-        switch (parser->current.type) {
-            case TOKEN_CLASS:
-            case TOKEN_FUN:
-            case TOKEN_VAR:
-            case TOKEN_FOR:
-            case TOKEN_IF:
-            case TOKEN_WHILE:
-            case TOKEN_PRINT:
-            case TOKEN_RETURN:
-                return;
-            default: {
-                advance(parser);
-            }
-        }
+    while (compiler->localArray.count > 0 &&
+           compiler->localArray.locals[compiler->localArray.count - 1].depth > compiler->scopeDepth) {
+        emitByte(parser, OP_POP);
+        compiler->localArray.count--;
     }
 }
 
@@ -295,6 +275,30 @@ static void varDeclaration(Parser* parser) {
     defineVariable(parser, global);
 }
 
+
+static void synchronise(Parser* parser) {
+    parser->panicMode = false;
+
+    while (parser->current.type != TOKEN_EOF) {
+        if (parser->previous.type == TOKEN_SEMICOLON) return;
+
+        switch (parser->current.type) {
+            case TOKEN_CLASS:
+            case TOKEN_FUN:
+            case TOKEN_VAR:
+            case TOKEN_FOR:
+            case TOKEN_IF:
+            case TOKEN_WHILE:
+            case TOKEN_PRINT:
+            case TOKEN_RETURN:
+                return;
+            default: {
+                advance(parser);
+            }
+        }
+    }
+}
+
 static void declaration(Parser* parser) {
     if (match(parser, TOKEN_VAR)) {
         varDeclaration(parser);
@@ -305,18 +309,118 @@ static void declaration(Parser* parser) {
     if (parser->panicMode) synchronise(parser);
 }
 
-static void beginScope(Parser* parser) {
-    parser->compiler->scopeDepth++;
+static void printStatement(Parser* parser) {
+    expression(parser);
+    consume(parser, TOKEN_SEMICOLON, "Expect ';' after value.");
+    emitByte(parser, OP_PRINT);
 }
 
-static void endScope(Parser* parser) {
-    Compiler* compiler = parser->compiler;
-    compiler->scopeDepth--;
+static int32_t emitJump(Parser* parser, OpCode op) {
+    emitByte(parser, op);
+    emitBytes(parser, 0xFF, 0xFF);
+    return (int32_t) currentChunk(parser)->count - 2;
+}
 
-    while (compiler->localArray.count > 0 && compiler->localArray.locals[compiler->localArray.count - 1].depth > compiler->scopeDepth) {
-        emitByte(parser, OP_POP);
-        compiler->localArray.count--;
+static void patchJump(Parser* parser, int32_t index) {
+    int32_t jump = (int32_t) currentChunk(parser)->count - index - 2;
+    if (jump > UINT16_MAX) {
+        error(parser, "Too much code to jump over.");
     }
+
+    currentChunk(parser)->code[index] = (uint8_t) (jump >> 8);
+    currentChunk(parser)->code[index + 1] = (uint8_t) jump;
+}
+
+static void emitLoop(Parser* parser, uint32_t loopStart) {
+    emitByte(parser, OP_LOOP);
+
+    uint32_t offset = currentChunk(parser)->count - loopStart + 2;
+    if (offset > UINT16_MAX) error(parser, "Loop body too large.");
+
+    emitByte(parser, (uint8_t) (loopStart >> 8));
+    emitByte(parser, (uint8_t) loopStart);
+}
+
+static void ifStatement(Parser* parser) {
+    consume(parser, TOKEN_LEFT_PAREN, "Expect '(' after 'if'.");
+    expression(parser);
+    consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+
+    int32_t thenJump = emitJump(parser, OP_JUMP_IF_FALSE);
+    // pop condition result
+    emitByte(parser, OP_POP);
+    statement(parser);
+    int32_t elseJump = emitJump(parser, OP_JUMP);
+    patchJump(parser, thenJump);
+    emitByte(parser, OP_POP);
+
+    if (match(parser, TOKEN_ELSE)) {
+        statement(parser);
+    }
+    patchJump(parser, elseJump);
+}
+
+static void whileStatement(Parser* parser) {
+    uint32_t loopStart = currentChunk(parser)->count;
+    consume(parser, TOKEN_LEFT_PAREN, "Expect '(' after 'while'.");
+    expression(parser);
+    consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after condition.");
+
+    int32_t exitJump = emitJump(parser, OP_JUMP_IF_FALSE);
+    emitByte(parser, OP_POP);
+    statement(parser);
+    emitLoop(parser, loopStart);
+
+    patchJump(parser, exitJump);
+    emitByte(parser, OP_POP);
+}
+
+static void expressionStatement(Parser* parser) {
+    expression(parser);
+    consume(parser, TOKEN_SEMICOLON, "Expect ';' after value.");
+    emitByte(parser, OP_POP);
+}
+
+static void forStatement(Parser* parser) {
+    beginScope(parser);
+    consume(parser, TOKEN_LEFT_PAREN, "Expect '(' after 'for'.");
+    if (match(parser, TOKEN_SEMICOLON)) {
+        // no initialiser
+    } else if (match(parser, TOKEN_VAR)) {
+        varDeclaration(parser);
+    } else {
+        expressionStatement(parser);
+    }
+
+    uint32_t loopStart = currentChunk(parser)->count;
+    int32_t exitJump = -1;
+    if (!match(parser, TOKEN_SEMICOLON)) {
+        expression(parser);
+        consume(parser, TOKEN_SEMICOLON, "Expect ';' after loop condition.");
+
+        exitJump = emitJump(parser, OP_JUMP_IF_FALSE);
+        emitByte(parser, OP_POP);
+    }
+
+    if (!match(parser, TOKEN_RIGHT_PAREN)) {
+        int32_t bodyJump = emitJump(parser, OP_JUMP);
+        uint32_t incrementStart = currentChunk(parser)->count;
+        expression(parser);
+        emitByte(parser, OP_POP);
+        consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after for clauses.");
+
+        emitLoop(parser, loopStart);
+        loopStart = incrementStart;
+        patchJump(parser, bodyJump);
+    }
+
+    statement(parser);
+    emitLoop(parser, loopStart);
+    if (exitJump != -1) {
+        patchJump(parser, exitJump);
+        emitByte(parser, OP_POP);
+    }
+    endScope(parser);
 }
 
 static void block(Parser* parser) {
@@ -330,6 +434,12 @@ static void block(Parser* parser) {
 static void statement(Parser* parser) {
     if (match(parser, TOKEN_PRINT)) {
         printStatement(parser);
+    } else if (match(parser, TOKEN_IF)) {
+        ifStatement(parser);
+    } else if (match(parser, TOKEN_WHILE)) {
+        whileStatement(parser);
+    } else if (match(parser, TOKEN_FOR)) {
+        forStatement(parser);
     } else if (match(parser, TOKEN_LEFT_BRACE)) {
         beginScope(parser);
         block(parser);
@@ -470,6 +580,24 @@ static void variable(Parser* parser, bool canAssign) {
     namedVariable(parser, parser->previous, canAssign);
 }
 
+static void and(Parser* parser, bool canAssign) {
+    int32_t endJump = emitJump(parser, OP_JUMP_IF_FALSE);
+    emitByte(parser, OP_POP);
+    parsePrecedence(parser, PREC_AND);
+    patchJump(parser, endJump);
+}
+
+static void or(Parser* parser, bool canAssign) {
+    int32_t elseJump = emitJump(parser, OP_JUMP_IF_FALSE);
+    int32_t endJump = emitJump(parser, OP_JUMP);
+
+    patchJump(parser, elseJump);
+    emitByte(parser, OP_POP);
+
+    parsePrecedence(parser, PREC_OR);
+    patchJump(parser, endJump);
+}
+
 ParseRule rules[] = {
         [TOKEN_LEFT_PAREN] = {grouping, NULL, PREC_NONE},
         [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
@@ -493,7 +621,7 @@ ParseRule rules[] = {
         [TOKEN_IDENTIFIER] = {variable, NULL, PREC_NONE},
         [TOKEN_STRING] = {string, NULL, PREC_NONE},
         [TOKEN_NUMBER] = {number, NULL, PREC_NONE},
-        [TOKEN_AND] = {NULL, NULL, PREC_NONE},
+        [TOKEN_AND] = {NULL, and, PREC_NONE},
         [TOKEN_CLASS] = {NULL, NULL, PREC_NONE},
         [TOKEN_ELSE] = {NULL, NULL, PREC_NONE},
         [TOKEN_FALSE] = {literal, NULL, PREC_NONE},
@@ -501,7 +629,7 @@ ParseRule rules[] = {
         [TOKEN_FUN] = {NULL, NULL, PREC_NONE},
         [TOKEN_IF] = {NULL, NULL, PREC_NONE},
         [TOKEN_NIL] = {literal, NULL, PREC_NONE},
-        [TOKEN_OR] = {NULL, NULL, PREC_NONE},
+        [TOKEN_OR] = {NULL, or, PREC_NONE},
         [TOKEN_PRINT] = {NULL, NULL, PREC_NONE},
         [TOKEN_RETURN] = {NULL, NULL, PREC_NONE},
         [TOKEN_SUPER] = {NULL, NULL, PREC_NONE},
@@ -519,6 +647,7 @@ static ParseRule* getRule(TokenType type) {
 
 static void endCompiler(Parser* parser) {
     emitByte(parser, OP_RETURN);
+    freeLocalArray(parser->freeList, &parser->compiler->localArray);
 #ifdef DEBUG_PRINT_CODE
     if (!parser->hadError) {
         disassembleChunk(currentChunk(parser), "code");

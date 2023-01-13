@@ -64,6 +64,7 @@ static void concatenate(VM* vm) {
 static InterpretResult run(VM* vm) {
 #define READ_BYTE (*vm->ip++)
 #define READ_LONG ((READ_BYTE << 16) | (READ_BYTE << 8) | READ_BYTE)
+#define READ_SHORT ((READ_BYTE << 8) | (READ_BYTE))
 #define PEEK(distance) (vm->stack.values[vm->stack.count - 1 - distance])
 #define BINARY_OP(valueType, op) do { \
     if (!IS_NUMBER(PEEK(0)) || !IS_NUMBER(PEEK(1))) { \
@@ -206,12 +207,28 @@ static InterpretResult run(VM* vm) {
                 BINARY_OP(BOOL_VAL, <);
                 break;
             }
+            case OP_JUMP: {
+                uint32_t offset = READ_SHORT;
+                vm->ip += offset;
+                break;
+            }
+            case OP_JUMP_IF_FALSE: {
+                uint32_t offset = READ_SHORT;
+                if (isFalsey(PEEK(0))) vm->ip += offset;
+                break;
+            }
+            case OP_LOOP: {
+                uint32_t offset = READ_SHORT;
+                vm->ip -= offset;
+                break;
+            }
         }
     }
 
     return INTERPRET_OK;
 
 #undef READ_BYTE
+#undef READ_SHORT
 #undef READ_LONG
 #undef PEEK
 #undef BINARY_OP
