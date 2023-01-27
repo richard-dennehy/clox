@@ -13,6 +13,7 @@ typedef enum {
 
 typedef struct Obj Obj;
 typedef struct ObjString ObjString;
+typedef struct ObjFunction ObjFunction;
 
 typedef struct {
     ValueType type;

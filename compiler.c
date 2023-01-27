@@ -34,6 +34,11 @@ typedef struct {
     int32_t depth;
 } Local;
 
+typedef enum {
+    TYPE_FUNCTION,
+    TYPE_SCRIPT,
+} FunctionType;
+
 typedef struct {
     uint32_t capacity;
     uint32_t count;
@@ -62,6 +67,9 @@ static void freeLocalArray(FreeList* freeList, LocalArray* array) {
 }
 
 typedef struct Compiler {
+    ObjFunction* function;
+    FunctionType type;
+
     LocalArray localArray;
     uint32_t scopeDepth;
 } Compiler;
@@ -100,7 +108,7 @@ static void advance(Parser* parser) {
 }
 
 static Chunk* currentChunk(Parser* parser) {
-    return parser->compilingChunk;
+    return &parser->compiler->function->chunk;
 }
 
 static void emitByte(Parser* parser, uint8_t byte) {
@@ -645,39 +653,54 @@ static ParseRule* getRule(TokenType type) {
     return &rules[type];
 }
 
-static void endCompiler(Parser* parser) {
+static ObjFunction* endCompiler(Parser* parser) {
     emitByte(parser, OP_RETURN);
+    ObjFunction* function = parser->compiler->function;
+
     freeLocalArray(parser->freeList, &parser->compiler->localArray);
 #ifdef DEBUG_PRINT_CODE
     if (!parser->hadError) {
-        disassembleChunk(currentChunk(parser), "code");
+        disassembleChunk(currentChunk(parser), function->name ? function->name->chars : "<script>");
     }
 #endif
+
+    return function;
 }
 
-void initCompiler(Compiler* compiler) {
+void initCompiler(VM* vm, Compiler* compiler, FunctionType type) {
     initLocalArray(&compiler->localArray);
     compiler->scopeDepth = 0;
+    compiler->type = type;
+    compiler->function = NULL;
+    compiler->function = newFunction(vm);
+
+    Local local = {
+            .depth = 0,
+            .name = {
+                    .start = "",
+                    .length = 0,
+            }
+    };
+    writeLocal(vm->freeList, &compiler->localArray, local);
 }
 
-bool compile(VM* vm, const char* source, Chunk* chunk) {
+ObjFunction* compile(VM* vm, const char* source) {
     Scanner scanner;
     initScanner(&scanner, source);
     Compiler compiler;
-    initCompiler(&compiler);
+    initCompiler(vm, &compiler, TYPE_SCRIPT);
 
     Parser parser;
     parser.scanner = &scanner;
     parser.hadError = false;
     parser.panicMode = false;
-    parser.compilingChunk = chunk;
     parser.vm = vm;
     parser.compiler = &compiler;
     parser.freeList = vm->freeList;
 
     advance(&parser);
     while (!match(&parser, TOKEN_EOF)) declaration(&parser);
-    endCompiler(&parser);
+    ObjFunction* function = endCompiler(&parser);
 
-    return !parser.hadError;
+    return parser.hadError ? NULL : function;
 }

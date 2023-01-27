@@ -11,7 +11,6 @@ typedef struct {
     Token current;
     Token previous;
     Scanner* scanner;
-    Chunk* compilingChunk;
     VM* vm;
     struct Compiler* compiler;
     FreeList* freeList;
@@ -19,6 +18,6 @@ typedef struct {
     bool panicMode;
 } Parser;
 
-bool compile(VM* vm, const char* source, Chunk* chunk);
+ObjFunction* compile(VM* vm, const char* source);
 
 #endif //CLOX_COMPILER_H

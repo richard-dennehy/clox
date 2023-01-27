@@ -10,6 +10,7 @@
 
 static void resetStack(VM* vm) {
     vm->stack.count = 0;
+    vm->frameCount = 0;
 }
 
 void initVM(FreeList* freeList, VM* vm) {
@@ -30,15 +31,17 @@ void freeVM(VM* vm) {
 }
 
 static void runtimeError(VM* vm, const char* format, ...) {
+    fprintf(stderr, "\n\033[1;31m");
     va_list args;
     va_start(args, format);
     vfprintf(stderr, format, args);
     va_end(args);
     fputs("\n", stderr);
 
-    size_t instruction = vm->ip - vm->chunk->code - 1;
-    uint32_t line = getLine(vm->chunk, instruction);
-    fprintf(stderr, "[line %d] in script\n", line);
+    CallFrame* frame = &vm->frames[vm->frameCount - 1];
+    size_t instruction = frame->ip - frame->function->chunk.code - 1;
+    uint32_t line = getLine(&frame->function->chunk, instruction);
+    fprintf(stderr, "\033[1;31m[line %d] in script\n\033[0m", line);
     resetStack(vm);
 }
 
@@ -62,7 +65,9 @@ static void concatenate(VM* vm) {
 }
 
 static InterpretResult run(VM* vm) {
-#define READ_BYTE (*vm->ip++)
+    CallFrame* frame = &vm->frames[vm->frameCount - 1];
+
+#define READ_BYTE (*frame->ip++)
 #define READ_LONG ((READ_BYTE << 16) | (READ_BYTE << 8) | READ_BYTE)
 #define READ_SHORT ((READ_BYTE << 8) | (READ_BYTE))
 #define PEEK(distance) (vm->stack.values[vm->stack.count - 1 - distance])
@@ -76,7 +81,7 @@ static InterpretResult run(VM* vm) {
     PEEK(0) = valueType(a op b);\
 } while (false)
 
-    while (vm->ip < vm->chunk->code + vm->chunk->count) {
+    while (frame->ip < frame->function->chunk.code + frame->function->chunk.count) {
 #ifdef DEBUG_TRACE_EXECUTION
         printf("          ");
         for (uint32_t i = 0; i < vm->stack.count; i++) {
@@ -85,7 +90,7 @@ static InterpretResult run(VM* vm) {
             printf("]");
         }
         printf("\n");
-        disassembleInstruction(vm->chunk, (uint32_t) (vm->ip - vm->chunk->code));
+        disassembleInstruction(&frame->function->chunk, (uint32_t) (frame->ip - frame->function->chunk.code));
 #endif
         uint8_t instruction;
         switch (instruction = READ_BYTE) {
@@ -132,13 +137,13 @@ static InterpretResult run(VM* vm) {
             case OP_CONSTANT:
             case OP_CONSTANT_LONG: {
                 uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
-                push(vm, vm->chunk->constants.values[index]);
+                push(vm, frame->function->chunk.constants.values[index]);
                 break;
             }
             case OP_DEFINE_GLOBAL:
             case OP_DEFINE_GLOBAL_LONG: {
                 uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
-                ObjString* name = AS_STRING(vm->chunk->constants.values[index]);
+                ObjString* name = AS_STRING(frame->function->chunk.constants.values[index]);
                 tableSet(&vm->globals, name, PEEK(0));
                 pop(vm);
                 break;
@@ -146,7 +151,7 @@ static InterpretResult run(VM* vm) {
             case OP_GET_GLOBAL:
             case OP_GET_GLOBAL_LONG: {
                 uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
-                ObjString* name = AS_STRING(vm->chunk->constants.values[index]);
+                ObjString* name = AS_STRING(frame->function->chunk.constants.values[index]);
                 Value value;
                 if (!tableGet(&vm->globals, name, &value)) {
                     runtimeError(vm, "Undefined variable '%s'.", name->chars);
@@ -158,7 +163,7 @@ static InterpretResult run(VM* vm) {
             case OP_SET_GLOBAL:
             case OP_SET_GLOBAL_LONG: {
                 uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
-                ObjString* name = AS_STRING(vm->chunk->constants.values[index]);
+                ObjString* name = AS_STRING(frame->function->chunk.constants.values[index]);
                 if (tableSet(&vm->globals, name, PEEK(0))) {
                     tableDelete(&vm->globals, name);
                     runtimeError(vm, "Undefined variable '%s'", name);
@@ -169,13 +174,13 @@ static InterpretResult run(VM* vm) {
             case OP_GET_LOCAL:
             case OP_GET_LOCAL_LONG: {
                 uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
-                push(vm, vm->stack.values[index]);
+                push(vm, vm->stack.values[frame->base + index]);
                 break;
             }
             case OP_SET_LOCAL:
             case OP_SET_LOCAL_LONG: {
                 uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
-                vm->stack.values[index] = PEEK(0);
+                vm->stack.values[frame->base + index] = PEEK(0);
                 break;
             }
             case OP_NIL: {
@@ -209,18 +214,22 @@ static InterpretResult run(VM* vm) {
             }
             case OP_JUMP: {
                 uint32_t offset = READ_SHORT;
-                vm->ip += offset;
+                frame->ip += offset;
                 break;
             }
             case OP_JUMP_IF_FALSE: {
                 uint32_t offset = READ_SHORT;
-                if (isFalsey(PEEK(0))) vm->ip += offset;
+                if (isFalsey(PEEK(0))) frame->ip += offset;
                 break;
             }
             case OP_LOOP: {
                 uint32_t offset = READ_SHORT;
-                vm->ip -= offset;
+                frame->ip -= offset;
                 break;
+            }
+            case OP_RETURN: {
+                pop(vm);
+                return INTERPRET_OK;
             }
         }
     }
@@ -235,21 +244,16 @@ static InterpretResult run(VM* vm) {
 }
 
 InterpretResult interpret(VM* vm, const char* source) {
-    Chunk chunk;
-    initChunk(&chunk);
+    ObjFunction* function = compile(vm, source);
+    if (!function) return INTERPRET_COMPILE_ERROR;
 
-    if (!compile(vm, source, &chunk)) {
-        freeChunk(vm->freeList, &chunk);
-        return INTERPRET_COMPILE_ERROR;
-    }
+    push(vm, OBJ_VAL(function));
+    CallFrame* frame = &vm->frames[vm->frameCount++];
+    frame->function = function;
+    frame->ip = function->chunk.code;
+    frame->base = 0;
 
-    vm->chunk = &chunk;
-    vm->ip = chunk.code;
-
-    InterpretResult result = run(vm);
-
-    freeChunk(vm->freeList, &chunk);
-    return result;
+    return run(vm);
 }
 
 void push(VM* vm, Value value) {

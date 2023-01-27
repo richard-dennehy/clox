@@ -4,10 +4,18 @@
 #include "chunk.h"
 #include "table.h"
 
+#define FRAMES_MAX 64
+
+typedef struct {
+    ObjFunction* function;
+    uint8_t* ip;
+    uint32_t base;
+} CallFrame;
+
 typedef struct {
     FreeList* freeList;
-    Chunk* chunk;
-    uint8_t* ip;
+    CallFrame frames[FRAMES_MAX];
+    uint8_t frameCount;
     ValueArray stack;
     Table globals;
     Table strings;

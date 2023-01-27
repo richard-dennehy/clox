@@ -38,6 +38,12 @@ static uint32_t byteInstruction(const char* name, Chunk* chunk, uint32_t offset)
     return offset + 2;
 }
 
+static uint32_t longInstruction(const char* name, Chunk* chunk, uint32_t offset) {
+    uint32_t slot = (chunk->code[offset + 1] << 16) | (chunk->code[offset + 2] << 8) | chunk->code[offset + 3];
+    printf("%-16s %4d\n", name, slot);
+    return offset + 4;
+}
+
 static uint32_t jumpInstruction(const char* name, Chunk* chunk, int32_t sign, uint32_t offset) {
     uint16_t jump = (chunk->code[offset + 1] << 8) | (chunk->code[offset + 2]);
     printf("%-16s %4d -> %d\n", name, offset, offset + 3 + sign * jump);
@@ -72,8 +78,12 @@ uint32_t disassembleInstruction(Chunk* chunk, uint32_t offset) {
             return longConstantInstruction("OP_SET_GLOBAL_LONG", chunk, offset);
         case OP_GET_LOCAL:
             return byteInstruction("OP_GET_LOCAL", chunk, offset);
+        case OP_GET_LOCAL_LONG:
+            return longInstruction("OP_GET_LOCAL_LONG", chunk, offset);
         case OP_SET_LOCAL:
             return byteInstruction("OP_SET_LOCAL", chunk, offset);
+        case OP_SET_LOCAL_LONG:
+            return longInstruction("OP_SET_LOCAL_LONG", chunk, offset);
         case OP_ADD:
             return simpleInstruction("OP_ADD", offset);
         case OP_SUBTRACT:

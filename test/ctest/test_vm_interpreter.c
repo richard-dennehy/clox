@@ -2,7 +2,8 @@
 #include "vm.c"
 
 #define INTERPRET(source) assert(interpret(&vm, source) == INTERPRET_OK)
-#define STACK_HEAD vm.stack.values[0]
+// 0 is script function object
+#define STACK_HEAD vm.stack.values[1]
 static char printLog[32][64];
 static int printed = 0;
 
@@ -60,7 +61,7 @@ int testVmArithmetic() {
     // NOTE: these tests will probably stop working once the temporary return instruction stops being added to all chunks - will need to adjust the indexes
 #define RUN_TEST(source, expected) do { \
     INTERPRET(source);  \
-    Value result = vm.stack.values[0];                                    \
+    Value result = STACK_HEAD;                                    \
     checkIntsEqual(result.type, VAL_NUMBER);                                    \
     checkFloatsEqual(result.as.number, expected); \
 } while(0)
@@ -88,7 +89,7 @@ int testNil() {
     initVM(&freeList, &vm);
 
     INTERPRET("nil;");
-    checkIntsEqual(vm.stack.values[0].type, VAL_NIL);
+    checkIntsEqual(STACK_HEAD.type, VAL_NIL);
 
     INTERPRET("nil == nil;");
     checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
@@ -327,6 +328,9 @@ int testLocals() {
     INTERPRET(source);
     checkIntsEqual(printed, 4);
     checkStringsEqual(printLog[3], "385");
+
+    // can only assign to valid assigment target
+    checkIntsEqual(interpret(&vm, "var a = 0; var b = 1; var c = 2; var d = 3; a + b = c + d"), INTERPRET_COMPILE_ERROR);
 
     freeVM(&vm);
     freeMemory(&freeList);

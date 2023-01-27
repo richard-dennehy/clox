@@ -42,8 +42,28 @@ ObjString* copyString(VM* vm, const char* chars, uint32_t length) {
     return allocateString(vm, heapChars, length, hash);
 }
 
+ObjFunction* newFunction(VM* vm) {
+    ObjFunction* function = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
+    function->arity = 0;
+    function->name = NULL;
+    initChunk(&function->chunk);
+
+    return function;
+}
+
+static void printFunction(Printer* print, ObjFunction* function) {
+    if (function->name) {
+        print("<fn %s>", function->name->chars);
+    } else {
+        print("<script>");
+    }
+}
+
 void printObject(Printer* print, Value value) {
     switch (OBJ_TYPE(value)) {
+        case OBJ_FUNCTION:
+            printFunction(print, AS_FUNCTION(value));
+            break;
         case OBJ_STRING:
             print("%s", AS_CSTRING(value));
             break;
@@ -63,6 +83,12 @@ ObjString* takeString(VM* vm, char* chars, uint32_t length) {
 
 static void freeObject(FreeList* freeList, Obj* object) {
     switch(object->type) {
+        case OBJ_FUNCTION: {
+            ObjFunction* function = (ObjFunction*) object;
+            freeChunk(freeList, &function->chunk);
+            FREE(ObjFunction, object);
+            break;
+        }
         case OBJ_STRING: {
             ObjString* string = (ObjString*) object;
             FREE_ARRAY(char, string->chars, string->length + 1);

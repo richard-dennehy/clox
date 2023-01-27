@@ -78,6 +78,8 @@ uint32_t getLine(Chunk* chunk, uint32_t instructionIndex) {
     }
 
     // hopefully nobody's writing 4 billion lines of lox code
-    assert(line != UINT32_MAX);
+    if (line == UINT32_MAX) {
+        assert(!"Oh no");
+    }
     return line;
 }
