@@ -7,6 +7,7 @@
 
 typedef enum {
     OBJ_FUNCTION,
+    OBJ_NATIVE,
     OBJ_STRING,
 } ObjType;
 
@@ -29,9 +30,17 @@ struct ObjFunction {
     ObjString* name;
 };
 
+typedef Value (*NativeFn)(uint8_t argumentCount, Value* args);
+
+struct ObjNative {
+    Obj obj;
+    NativeFn function;
+};
+
 ObjString* copyString(VM* vm, const char* chars, uint32_t length);
 ObjString* takeString(VM* vm, char* chars, uint32_t length);
 ObjFunction* newFunction(VM* vm);
+ObjNative* newNative(VM* vm, NativeFn function);
 void printObject(Printer* print, Value value);
 void freeObjects(VM* vm);
 
@@ -46,6 +55,8 @@ static inline bool isObjType(Value value, ObjType type) {
 #define AS_CSTRING(value) (AS_STRING(value)->chars)
 
 #define IS_FUNCTION(value) isObjType(value, OBJ_FUNCTION)
+#define IS_NATIVE(value) isObjType(value, OBJ_NATIVE)
 #define AS_FUNCTION(value) ((ObjFunction*) AS_OBJ(value))
+#define AS_NATIVE(value) (((ObjNative*) AS_OBJ(value))->function)
 
 #endif //CLOX_OBJECT_H

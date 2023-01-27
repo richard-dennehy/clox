@@ -51,6 +51,12 @@ ObjFunction* newFunction(VM* vm) {
     return function;
 }
 
+ObjNative* newNative(VM* vm, NativeFn function) {
+    ObjNative* native = ALLOCATE_OBJ(ObjNative, OBJ_NATIVE);
+    native->function = function;
+    return native;
+}
+
 static void printFunction(Printer* print, ObjFunction* function) {
     if (function->name) {
         print("<fn %s>", function->name->chars);
@@ -63,6 +69,9 @@ void printObject(Printer* print, Value value) {
     switch (OBJ_TYPE(value)) {
         case OBJ_FUNCTION:
             printFunction(print, AS_FUNCTION(value));
+            break;
+        case OBJ_NATIVE:
+            print("<native fn>");
             break;
         case OBJ_STRING:
             print("%s", AS_CSTRING(value));
@@ -87,6 +96,10 @@ static void freeObject(FreeList* freeList, Obj* object) {
             ObjFunction* function = (ObjFunction*) object;
             freeChunk(freeList, &function->chunk);
             FREE(ObjFunction, object);
+            break;
+        }
+        case OBJ_NATIVE: {
+            FREE(ObjNative, object);
             break;
         }
         case OBJ_STRING: {

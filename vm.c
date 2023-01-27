@@ -2,11 +2,24 @@
 #include <assert.h>
 #include <stdarg.h>
 #include <string.h>
+#include <time.h>
 #include "common.h"
 #include "vm.h"
 #include "debug.h"
 #include "compiler.h"
 #include "object.h"
+
+static Value clockNative(uint8_t argumentCount, Value* args) {
+    return NUMBER_VAL((double) clock() / CLOCKS_PER_SEC);
+}
+
+static void defineNative(VM* vm, const char* name, NativeFn function) {
+    push(vm, OBJ_VAL(copyString(vm, name, strlen(name))));
+    push(vm, OBJ_VAL(newNative(vm, function)));
+    tableSet(&vm->globals, AS_STRING(vm->stack.values[0]), vm->stack.values[1]);
+    pop(vm);
+    pop(vm);
+}
 
 static void resetStack(VM* vm) {
     vm->stack.count = 0;
@@ -21,6 +34,8 @@ void initVM(FreeList* freeList, VM* vm) {
     initTable(freeList, &vm->globals);
     initTable(freeList, &vm->strings);
     vm->print = printf;
+
+    defineNative(vm, "clock", clockNative);
 }
 
 void freeVM(VM* vm) {
@@ -38,15 +53,61 @@ static void runtimeError(VM* vm, const char* format, ...) {
     va_end(args);
     fputs("\n", stderr);
 
-    CallFrame* frame = &vm->frames[vm->frameCount - 1];
-    size_t instruction = frame->ip - frame->function->chunk.code - 1;
-    uint32_t line = getLine(&frame->function->chunk, instruction);
-    fprintf(stderr, "\033[1;31m[line %d] in script\n\033[0m", line);
+    for (int32_t i = vm->frameCount - 1; i >= 0; i--) {
+        CallFrame* frame = vm->frames + i;
+        size_t instruction = frame->ip - frame->function->chunk.code - 1;
+        uint32_t line = getLine(&frame->function->chunk, instruction);
+        fprintf(stderr, "\033[1;31m[line %d] in ", line);
+        if (!frame->function->name) {
+            fprintf(stderr, "script\n\033[0m");
+        } else {
+            fprintf(stderr, "%s()\n\033[0m", frame->function->name->chars);
+        }
+    }
+
     resetStack(vm);
 }
 
 static bool isFalsey(Value value) {
     return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
+}
+
+static bool call(VM* vm, ObjFunction* function, uint8_t argumentCount) {
+    if (argumentCount != function->arity) {
+        runtimeError(vm, "Expected %d arguments but got %d.", function->arity, argumentCount);
+        return false;
+    }
+
+    if (vm->frameCount == FRAMES_MAX) {
+        runtimeError(vm, "Stack overflow.");
+        return false;
+    }
+
+    CallFrame* frame = vm->frames + vm->frameCount++;
+    frame->function = function;
+    frame->ip = function->chunk.code;
+    frame->base = vm->stack.count - argumentCount - 1;
+    return true;
+}
+
+static bool callValue(VM* vm, Value callee, uint8_t argumentCount) {
+    if (IS_OBJ(callee)) {
+        switch (OBJ_TYPE(callee)) {
+            case OBJ_FUNCTION:
+                return call(vm, AS_FUNCTION(callee), argumentCount);
+            case OBJ_NATIVE: {
+                NativeFn native = AS_NATIVE(callee);
+                Value result = native(argumentCount, vm->stack.values + vm->stack.count - argumentCount);
+                vm->stack.count -= argumentCount + 1;
+                push(vm, result);
+                return true;
+            }
+            default:
+                break;
+        }
+    }
+    runtimeError(vm, "Can only call functions and classes.");
+    return false;
 }
 
 static void concatenate(VM* vm) {
@@ -65,7 +126,7 @@ static void concatenate(VM* vm) {
 }
 
 static InterpretResult run(VM* vm) {
-    CallFrame* frame = &vm->frames[vm->frameCount - 1];
+    CallFrame* frame = vm->frames + vm->frameCount - 1;
 
 #define READ_BYTE (*frame->ip++)
 #define READ_LONG ((READ_BYTE << 16) | (READ_BYTE << 8) | READ_BYTE)
@@ -227,9 +288,25 @@ static InterpretResult run(VM* vm) {
                 frame->ip -= offset;
                 break;
             }
+            case OP_CALL: {
+                uint8_t argumentCount = READ_BYTE;
+                if (!callValue(vm, PEEK(argumentCount), argumentCount)) {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                frame = vm->frames + vm->frameCount - 1;
+                break;
+            }
             case OP_RETURN: {
-                pop(vm);
-                return INTERPRET_OK;
+                Value result = pop(vm);
+                if (--vm->frameCount == 0) {
+                    pop(vm);
+                    return INTERPRET_OK;
+                }
+
+                vm->stack.count = frame->base;
+                push(vm, result);
+                frame = vm->frames + vm->frameCount - 1;
+                break;
             }
         }
     }
@@ -248,10 +325,7 @@ InterpretResult interpret(VM* vm, const char* source) {
     if (!function) return INTERPRET_COMPILE_ERROR;
 
     push(vm, OBJ_VAL(function));
-    CallFrame* frame = &vm->frames[vm->frameCount++];
-    frame->function = function;
-    frame->ip = function->chunk.code;
-    frame->base = 0;
+    call(vm, function, 0);
 
     return run(vm);
 }
