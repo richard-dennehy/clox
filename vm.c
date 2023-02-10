@@ -9,13 +9,13 @@
 #include "compiler.h"
 #include "object.h"
 
-static Value clockNative(uint8_t argumentCount, Value* args) {
+static Value clockNative(Value* args) {
     return NUMBER_VAL((double) clock() / CLOCKS_PER_SEC);
 }
 
-static void defineNative(VM* vm, const char* name, NativeFn function) {
+static void defineNative(VM* vm, const char* name, NativeFn function, uint8_t arity) {
     push(vm, OBJ_VAL(copyString(vm, name, strlen(name))));
-    push(vm, OBJ_VAL(newNative(vm, function)));
+    push(vm, OBJ_VAL(newNative(vm, function, arity)));
     tableSet(&vm->globals, AS_STRING(vm->stack.values[0]), vm->stack.values[1]);
     pop(vm);
     pop(vm);
@@ -35,7 +35,7 @@ void initVM(FreeList* freeList, VM* vm) {
     initTable(freeList, &vm->strings);
     vm->print = printf;
 
-    defineNative(vm, "clock", clockNative);
+    defineNative(vm, "clock", clockNative, 0);
 }
 
 void freeVM(VM* vm) {
@@ -96,8 +96,12 @@ static bool callValue(VM* vm, Value callee, uint8_t argumentCount) {
             case OBJ_FUNCTION:
                 return call(vm, AS_FUNCTION(callee), argumentCount);
             case OBJ_NATIVE: {
-                NativeFn native = AS_NATIVE(callee);
-                Value result = native(argumentCount, vm->stack.values + vm->stack.count - argumentCount);
+                ObjNative* native = AS_NATIVE(callee);
+                if (argumentCount != native->arity) {
+                    runtimeError(vm, "Expected %d arguments but got %d", native->arity, argumentCount);
+                    return false;
+                }
+                Value result = native->function(vm->stack.values + vm->stack.count - argumentCount);
                 vm->stack.count -= argumentCount + 1;
                 push(vm, result);
                 return true;

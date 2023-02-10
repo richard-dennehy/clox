@@ -30,17 +30,18 @@ struct ObjFunction {
     ObjString* name;
 };
 
-typedef Value (*NativeFn)(uint8_t argumentCount, Value* args);
+typedef Value (*NativeFn)(Value* args);
 
 struct ObjNative {
     Obj obj;
     NativeFn function;
+    uint8_t arity;
 };
 
 ObjString* copyString(VM* vm, const char* chars, uint32_t length);
 ObjString* takeString(VM* vm, char* chars, uint32_t length);
 ObjFunction* newFunction(VM* vm);
-ObjNative* newNative(VM* vm, NativeFn function);
+ObjNative* newNative(VM* vm, NativeFn function, uint8_t arity);
 void printObject(Printer* print, Value value);
 void freeObjects(VM* vm);
 
@@ -57,6 +58,6 @@ static inline bool isObjType(Value value, ObjType type) {
 #define IS_FUNCTION(value) isObjType(value, OBJ_FUNCTION)
 #define IS_NATIVE(value) isObjType(value, OBJ_NATIVE)
 #define AS_FUNCTION(value) ((ObjFunction*) AS_OBJ(value))
-#define AS_NATIVE(value) (((ObjNative*) AS_OBJ(value))->function)
+#define AS_NATIVE(value) (((ObjNative*) AS_OBJ(value)))
 
 #endif //CLOX_OBJECT_H

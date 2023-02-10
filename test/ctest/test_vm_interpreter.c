@@ -61,8 +61,8 @@ int testVmArithmetic() {
 
 #define RUN_TEST(source, expected) do { \
     int prevPrinted = printed;          \
-    char expectedPrint[5] = "";                                    \
-    snprintf(expectedPrint, 5, "%g", expected);                                    \
+    char expectedPrint[9] = "";                                    \
+    snprintf(expectedPrint, 9, "%g", expected);                                    \
     INTERPRET("print " source);  \
     checkIntsEqual(printed, prevPrinted + 1);                                    \
     checkStringsEqual(printLog[prevPrinted], expectedPrint); \
@@ -474,6 +474,8 @@ int testFunctions() {
     INTERPRET("print clock;");
     checkIntsEqual(printed, 7);
     checkStringsEqual(printLog[6], "<native fn>");
+
+    checkIntsEqual(interpret(&vm, "clock(\"doesn't take arguments\");"), INTERPRET_RUNTIME_ERROR);
 
     return err_code;
 }
