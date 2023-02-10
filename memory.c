@@ -1,5 +1,6 @@
 #include <stdlib.h>
 #include <assert.h>
+#include <stdio.h>
 #include "memory.h"
 
 void initMemory(FreeList* freeList, size_t size) {
@@ -64,6 +65,10 @@ void* reallocate(FreeList* freeList, void* pointer, size_t oldSize, size_t newSi
         newBlock->next = NULL;
         newBlock->blockSize = oldSize;
         last->next = newBlock;
+    }
+
+    if (!result && newSize) {
+        fprintf(stderr, "Failed to allocate memory for %zu bytes\n", newSize);
     }
 
     return result;

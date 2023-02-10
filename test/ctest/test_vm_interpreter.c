@@ -3,7 +3,6 @@
 
 #define INTERPRET(source) assert(interpret(&vm, source) == INTERPRET_OK)
 // 0 is script function object
-#define STACK_HEAD vm.stack.values[1]
 static char printLog[32][64];
 static int printed = 0;
 
@@ -24,7 +23,7 @@ int testVmStack() {
     int err_code = TEST_SUCCEEDED;
 
     FreeList freeList;
-    initMemory(&freeList, 16 * 1024);
+    initMemory(&freeList, 32 * 1024);
     VM vm;
     initVM(&freeList, &vm);
 
@@ -57,13 +56,16 @@ int testVmArithmetic() {
     VM vm;
     initMemory(&freeList, 16 * 1024);
     initVM(&freeList, &vm);
+    resetPrintLog();
+    vm.print = fakePrintf;
 
-    // NOTE: these tests will probably stop working once the temporary return instruction stops being added to all chunks - will need to adjust the indexes
 #define RUN_TEST(source, expected) do { \
-    INTERPRET(source);  \
-    Value result = STACK_HEAD;                                    \
-    checkIntsEqual(result.type, VAL_NUMBER);                                    \
-    checkFloatsEqual(result.as.number, expected); \
+    int prevPrinted = printed;          \
+    char expectedPrint[5] = "";                                    \
+    snprintf(expectedPrint, 5, "%g", expected);                                    \
+    INTERPRET("print " source);  \
+    checkIntsEqual(printed, prevPrinted + 1);                                    \
+    checkStringsEqual(printLog[prevPrinted], expectedPrint); \
 } while(0)
 
     RUN_TEST("-2;", -2.0);
@@ -71,7 +73,7 @@ int testVmArithmetic() {
     RUN_TEST("5 + 6;", 11.0);
     RUN_TEST("7 - 8;", -1.0);
     RUN_TEST("9 / 10;", 0.9);
-    RUN_TEST("(-1 + 2) * 3 - -4;", 7);
+    RUN_TEST("(-1 + 2) * 3 - -4;", 7.0);
 
 #undef RUN_TEST
     freeVM(&vm);
@@ -87,21 +89,24 @@ int testNil() {
     VM vm;
     initMemory(&freeList, 16 * 1024);
     initVM(&freeList, &vm);
+    resetPrintLog();
+    vm.print = fakePrintf;
 
-    INTERPRET("nil;");
-    checkIntsEqual(STACK_HEAD.type, VAL_NIL);
+    INTERPRET("print nil;");
+    checkIntsEqual(printed, 1);
+    checkStringsEqual(printLog[0], "nil");
 
-    INTERPRET("nil == nil;");
-    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
-    checkIntsEqual(STACK_HEAD.as.boolean, true);
+    INTERPRET("print nil == nil;");
+    checkIntsEqual(printed, 2);
+    checkStringsEqual(printLog[1], "true");
 
-    INTERPRET("nil != nil;");
-    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
-    checkIntsEqual(STACK_HEAD.as.boolean, false);
+    INTERPRET("print nil != nil;");
+    checkIntsEqual(printed, 3);
+    checkStringsEqual(printLog[2], "false");
 
-    INTERPRET("!nil;");
-    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
-    checkIntsEqual(STACK_HEAD.as.boolean, true);
+    INTERPRET("print !nil;");
+    checkIntsEqual(printed, 4);
+    checkStringsEqual(printLog[3], "true");
 
     freeVM(&vm);
     freeMemory(&freeList);
@@ -115,34 +120,36 @@ int testBools() {
     VM vm;
     initMemory(&freeList, 16 * 1024);
     initVM(&freeList, &vm);
+    resetPrintLog();
+    vm.print = fakePrintf;
 
-    INTERPRET("true;");
-    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
-    checkIntsEqual(STACK_HEAD.as.boolean, true);
+    INTERPRET("print true;");
+    checkIntsEqual(printed, 1);
+    checkStringsEqual(printLog[0], "true");
 
-    INTERPRET("false;");
-    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
-    checkIntsEqual(STACK_HEAD.as.boolean, false);
+    INTERPRET("print false;");
+    checkIntsEqual(printed, 2);
+    checkStringsEqual(printLog[1], "false");
 
-    INTERPRET("!true;");
-    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
-    checkIntsEqual(STACK_HEAD.as.boolean, false);
+    INTERPRET("print !true;");
+    checkIntsEqual(printed, 3);
+    checkStringsEqual(printLog[2], "false");
 
-    INTERPRET("!false;");
-    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
-    checkIntsEqual(STACK_HEAD.as.boolean, true);
+    INTERPRET("print !false;");
+    checkIntsEqual(printed, 4);
+    checkStringsEqual(printLog[3], "true");
 
-    INTERPRET("true == true;");
-    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
-    checkIntsEqual(STACK_HEAD.as.boolean, true);
+    INTERPRET("print true == true;");
+    checkIntsEqual(printed, 5);
+    checkStringsEqual(printLog[4], "true");
 
-    INTERPRET("false == false;");
-    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
-    checkIntsEqual(STACK_HEAD.as.boolean, true);
+    INTERPRET("print false == false;");
+    checkIntsEqual(printed, 6);
+    checkStringsEqual(printLog[5], "true");
 
-    INTERPRET("true == false;");
-    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
-    checkIntsEqual(STACK_HEAD.as.boolean, false);
+    INTERPRET("print true == false;");
+    checkIntsEqual(printed, 7);
+    checkStringsEqual(printLog[6], "false");
 
     freeVM(&vm);
     freeMemory(&freeList);
@@ -151,9 +158,10 @@ int testBools() {
 
 int testComparisons() {
 #define RUN_TEST(source, expected) do { \
-    INTERPRET(source);  \
-    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);                                    \
-    checkIntsEqual(STACK_HEAD.as.boolean, expected); \
+    int prevPrinted = printed;                                    \
+    INTERPRET("print " source);  \
+    checkIntsEqual(printed, prevPrinted + 1);                                    \
+    checkStringsEqual(printLog[prevPrinted], expected); \
 } while(0)
 
     int err_code = TEST_SUCCEEDED;
@@ -162,24 +170,26 @@ int testComparisons() {
     VM vm;
     initMemory(&freeList, 16 * 1024);
     initVM(&freeList, &vm);
+    resetPrintLog();
+    vm.print = fakePrintf;
 
-    RUN_TEST("1 > 0;", true);
-    RUN_TEST("1 >= 0;", true);
-    RUN_TEST("1 == 0;", false);
-    RUN_TEST("1 <= 0;", false);
-    RUN_TEST("1 < 0;", false);
+    RUN_TEST("1 > 0;", "true");
+    RUN_TEST("1 >= 0;", "true");
+    RUN_TEST("1 == 0;", "false");
+    RUN_TEST("1 <= 0;", "false");
+    RUN_TEST("1 < 0;", "false");
 
-    RUN_TEST("1 > 1;", false);
-    RUN_TEST("1 >= 1;", true);
-    RUN_TEST("1 == 1;", true);
-    RUN_TEST("1 <= 1;", true);
-    RUN_TEST("1 < 1;", false);
+    RUN_TEST("1 > 1;", "false");
+    RUN_TEST("1 >= 1;", "true");
+    RUN_TEST("1 == 1;", "true");
+    RUN_TEST("1 <= 1;", "true");
+    RUN_TEST("1 < 1;", "false");
 
-    RUN_TEST("0 > 1;", false);
-    RUN_TEST("0 >= 1;", false);
-    RUN_TEST("0 == 1;", false);
-    RUN_TEST("0 <= 1;", true);
-    RUN_TEST("0 < 1;", true);
+    RUN_TEST("0 > 1;", "false");
+    RUN_TEST("0 >= 1;", "false");
+    RUN_TEST("0 == 1;", "false");
+    RUN_TEST("0 <= 1;", "true");
+    RUN_TEST("0 < 1;", "true");
 
     freeVM(&vm);
     freeMemory(&freeList);
@@ -194,27 +204,32 @@ int testStrings() {
     VM vm;
     initMemory(&freeList, 16 * 1024);
     initVM(&freeList, &vm);
+    resetPrintLog();
+    vm.print = fakePrintf;
 
-    INTERPRET("\"st\" + \"ri\" + \"ng\";");
-    checkIntsEqual(STACK_HEAD.type, VAL_OBJ);
-    checkIntsEqual(AS_OBJ(STACK_HEAD)->type, OBJ_STRING);
-    checkIntsEqual(AS_STRING(STACK_HEAD)->length, 6);
+    INTERPRET("var string = \"st\" + \"ri\" + \"ng\";");
+    Value string;
+    ObjString* key = copyString(&vm, "string", strlen("string"));
+    checkTrue(tableGet(&vm.globals, key, &string));
+    checkIntsEqual(string.type, VAL_OBJ);
+    checkIntsEqual(AS_OBJ(string)->type, OBJ_STRING);
+    checkIntsEqual(AS_STRING(string)->length, 6);
 
     checkIntsEqual(interpret(&vm, "\"cannot add strings and numbers\" + 1.0;"), INTERPRET_RUNTIME_ERROR);
     checkIntsEqual(interpret(&vm, "1.0 + \"cannot add numbers and strings\";"), INTERPRET_RUNTIME_ERROR);
 
     // test interning/equality
-    INTERPRET("\"string\" == \"string\";");
-    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
-    checkIntsEqual(AS_BOOL(STACK_HEAD), true);
+    INTERPRET("print \"string\" == \"string\";");
+    checkIntsEqual(printed, 1);
+    checkStringsEqual(printLog[0], "true");
 
-    INTERPRET("\"str\" + \"ing\" == \"string\";");
-    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
-    checkIntsEqual(AS_BOOL(STACK_HEAD), true);
+    INTERPRET("print \"str\" + \"ing\" == \"string\";");
+    checkIntsEqual(printed, 2);
+    checkStringsEqual(printLog[1], "true");
 
-    INTERPRET("\"first\" == \"second\";");
-    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
-    checkIntsEqual(AS_BOOL(STACK_HEAD), false);
+    INTERPRET("print \"first\" == \"second\";");
+    checkIntsEqual(printed, 3);
+    checkStringsEqual(printLog[2], "false");
 
     freeVM(&vm);
     freeMemory(&freeList);
@@ -228,17 +243,25 @@ int testGlobals() {
     VM vm;
     initMemory(&freeList, 256 * 1024);
     initVM(&freeList, &vm);
+    resetPrintLog();
+    vm.print = fakePrintf;
 
+    Value global;
+    ObjString* key = copyString(&vm, "uninitialisedGlobal", strlen("uninitialisedGlobal"));
     INTERPRET("var uninitialisedGlobal;");
-    checkIntsEqual(STACK_HEAD.type, VAL_NIL);
+    checkTrue(tableGet(&vm.globals, key, &global));
+    checkIntsEqual(global.type, VAL_NIL);
 
     INTERPRET("uninitialisedGlobal = 5;");
-    checkIntsEqual(STACK_HEAD.type, VAL_NUMBER);
-    checkIntsEqual(AS_NUMBER(STACK_HEAD), 5);
+    checkTrue(tableGet(&vm.globals, key, &global));
+    checkIntsEqual(global.type, VAL_NUMBER);
+    checkIntsEqual(AS_NUMBER(global), 5);
 
+    key = copyString(&vm, "initialisedGlobal", strlen("initialisedGlobal"));
     INTERPRET("var initialisedGlobal = false;");
-    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
-    checkIntsEqual(AS_BOOL(STACK_HEAD), false);
+    checkTrue(tableGet(&vm.globals, key, &global));
+    checkIntsEqual(global.type, VAL_BOOL);
+    checkIntsEqual(AS_BOOL(global), false);
 
     char* chapterExample = "var breakfast = \"beignets\";\n"
                            "var beverage = \"cafe au lait\";\n"
@@ -246,12 +269,8 @@ int testGlobals() {
                            "\n"
                            "print breakfast;";
     INTERPRET(chapterExample);
-    checkIntsEqual(STACK_HEAD.type, VAL_OBJ);
-    checkIntsEqual(AS_OBJ(STACK_HEAD)->type, OBJ_STRING);
-
-    INTERPRET("breakfast == \"beignets with cafe au lait\";");
-    checkIntsEqual(STACK_HEAD.type, VAL_BOOL);
-    checkIntsEqual(AS_BOOL(STACK_HEAD), true);
+    checkIntsEqual(printed, 1);
+    checkStringsEqual(printLog[0], "beignets with cafe au lait");
 
     // check wide instructions
 
@@ -261,19 +280,19 @@ int testGlobals() {
         sprintf(line, "var g%d = %d;\n", i, i);
         strcat(source, line);
     }
-    strcat(source, "g128;");
+    strcat(source, "print g128;");
 
     INTERPRET(source);
-    checkIntsEqual(STACK_HEAD.type, VAL_NUMBER);
-    checkIntsEqual(AS_NUMBER(STACK_HEAD), 128);
+    checkIntsEqual(printed, 2);
+    checkStringsEqual(printLog[1], "128");
 
-    INTERPRET("g0;");
-    checkIntsEqual(STACK_HEAD.type, VAL_NUMBER);
-    checkIntsEqual(AS_NUMBER(STACK_HEAD), 0);
+    INTERPRET("print g0;");
+    checkIntsEqual(printed, 3);
+    checkStringsEqual(printLog[2], "0");
 
-    INTERPRET("g1;");
-    checkIntsEqual(STACK_HEAD.type, VAL_NUMBER);
-    checkIntsEqual(AS_NUMBER(STACK_HEAD), 1);
+    INTERPRET("print g1;");
+    checkIntsEqual(printed, 4);
+    checkStringsEqual(printLog[3], "1");
 
     freeVM(&vm);
     freeMemory(&freeList);
@@ -290,28 +309,28 @@ int testLocals() {
     vm.print = fakePrintf;
 
     // basic local declaration
-    INTERPRET("{ var a = 10; }");
-    checkIntsEqual(STACK_HEAD.type, VAL_NUMBER);
-    checkIntsEqual(AS_NUMBER(STACK_HEAD), 10);
+    INTERPRET("{ var a = 10; print a; }");
+    checkIntsEqual(printed, 1);
+    checkStringsEqual(printLog[0], "10");
 
     // falls out of scope after block closed
     checkIntsEqual(interpret(&vm, "a;"), INTERPRET_RUNTIME_ERROR);
 
     // local referencing global
-    INTERPRET("var global = 5; { var local = global + 10; }");
-    checkIntsEqual(STACK_HEAD.type, VAL_NUMBER);
-    checkIntsEqual(AS_NUMBER(STACK_HEAD), 15);
+    INTERPRET("var global = 5; { var local = global + 10; print local; }");
+    checkIntsEqual(printed, 2);
+    checkStringsEqual(printLog[1], "15");
 
     // reassigning local
-    INTERPRET("{ var a = 10; a = 20; }");
-    checkIntsEqual(STACK_HEAD.type, VAL_NUMBER);
-    checkIntsEqual(AS_NUMBER(STACK_HEAD), 20);
+    INTERPRET("{ var a = 10; a = 20; print a; }");
+    checkIntsEqual(printed, 3);
+    checkStringsEqual(printLog[2], "20");
 
     INTERPRET("var a = 1; { var a = 2; { var a = 3; print a; } print a; } print a;");
-    checkIntsEqual(printed, 3);
-    checkStringsEqual(printLog[0], "3");
-    checkStringsEqual(printLog[1], "2");
-    checkStringsEqual(printLog[2], "1");
+    checkIntsEqual(printed, 6);
+    checkStringsEqual(printLog[3], "3");
+    checkStringsEqual(printLog[4], "2");
+    checkStringsEqual(printLog[5], "1");
 
     // can't refer to uninitialised variable in its initialiser
     checkIntsEqual(interpret(&vm, "{ var a = a; }"), INTERPRET_COMPILE_ERROR);
@@ -326,8 +345,8 @@ int testLocals() {
     strcat(source, "\tprint l1 + l128 + l256; \n}\n");
 
     INTERPRET(source);
-    checkIntsEqual(printed, 4);
-    checkStringsEqual(printLog[3], "385");
+    checkIntsEqual(printed, 7);
+    checkStringsEqual(printLog[6], "385");
 
     // can only assign to valid assigment target
     checkIntsEqual(interpret(&vm, "var a = 0; var b = 1; var c = 2; var d = 3; a + b = c + d"), INTERPRET_COMPILE_ERROR);
@@ -400,7 +419,66 @@ int testControlFlow() {
     return err_code;
 }
 
+int testFunctions() {
+    int err_code = TEST_SUCCEEDED;
+    FreeList freeList;
+    VM vm;
+    initMemory(&freeList, 256 * 1024);
+    initVM(&freeList, &vm);
+    resetPrintLog();
+    vm.print = fakePrintf;
+
+    INTERPRET("fun empty() { print \"not executed\"; }");
+    checkIntsEqual(printed, 0);
+
+    INTERPRET("fun stuff() {} print stuff;");
+    checkIntsEqual(printed, 1);
+    checkStringsEqual(printLog[0], "<fn stuff>");
+
+    INTERPRET("fun function() { print \"you called?\"; } function();");
+    checkIntsEqual(printed, 2);
+    checkStringsEqual(printLog[1], "you called?");
+
+    INTERPRET("fun returnStuff() { return \"stuff\"; } print returnStuff();");
+    checkIntsEqual(printed, 3);
+    checkStringsEqual(printLog[2], "stuff");
+
+    INTERPRET("fun add(a, b) { return a + b; } print add(2, 3);");
+    checkIntsEqual(printed, 4);
+    checkStringsEqual(printLog[3], "5");
+
+    // TODO test error messages
+    checkIntsEqual(interpret(&vm, "fun oops(a, b) {} oops();"), INTERPRET_RUNTIME_ERROR);
+    checkIntsEqual(interpret(&vm, "fun oops(a, b) {} oops(1);"), INTERPRET_RUNTIME_ERROR);
+    checkIntsEqual(interpret(&vm, "fun oops(a, b) {} oops(1, 2, 3);"), INTERPRET_RUNTIME_ERROR);
+
+    checkIntsEqual(interpret(&vm, "var notFunction; notFunction();"), INTERPRET_RUNTIME_ERROR);
+
+    INTERPRET("fun addition(a, b) { return a + b; } var add = addition; print add(5, 7);");
+    checkIntsEqual(printed, 5);
+    checkStringsEqual(printLog[4], "12");
+
+    INTERPRET("fun weirdAdd(a, b) { if (b <= 0) { return a; } else { return weirdAdd(a + 1, b - 1); } } print weirdAdd(5, 10);");
+    checkIntsEqual(printed, 6);
+    checkStringsEqual(printLog[5], "15");
+
+    checkIntsEqual(interpret(&vm, "return \"oh no, top level return\";"), INTERPRET_COMPILE_ERROR);
+
+    INTERPRET("var now = clock();");
+    Value time;
+    ObjString* key = copyString(&vm, "now", strlen("now"));
+    checkTrue(tableGet(&vm.globals, key, &time));
+    checkIntsEqual(time.type, VAL_NUMBER);
+    // not checking value as it's dependent on how fast the test runs
+
+    INTERPRET("print clock;");
+    checkIntsEqual(printed, 7);
+    checkStringsEqual(printLog[6], "<native fn>");
+
+    return err_code;
+}
+
 int main() {
-    return testControlFlow() | testLocals() | testGlobals() | testVmStack() | testVmArithmetic() | testNil() |
-           testBools() | testComparisons() | testStrings();
+    return testGlobals() | testLocals() | testControlFlow() | testVmStack() | testVmArithmetic() | testNil() |
+           testBools() | testComparisons() | testStrings() | testFunctions();
 }

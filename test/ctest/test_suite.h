@@ -57,6 +57,12 @@
         }                                \
     } while(0)
 
+#define checkTrue(statement) \
+do {                         \
+    if (!statement) {        \
+        fprintf(stderr, "\n\033[1;31mExpected " #statement " to be true, but it was false @ line [%d] file " __FILE__ "\n\033[0m", __LINE__);                         \
+    }                             \
+} while(0)
 #define assertNotNull(ptr) \
     do {                   \
         if (!(ptr)) {      \
