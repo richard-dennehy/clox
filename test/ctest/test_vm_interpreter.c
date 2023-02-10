@@ -477,6 +477,13 @@ int testFunctions() {
 
     checkIntsEqual(interpret(&vm, "clock(\"doesn't take arguments\");"), INTERPRET_RUNTIME_ERROR);
 
+    // check it actually works
+    INTERPRET("print sqrt(4);");
+    checkIntsEqual(printed, 8);
+    checkStringsEqual(printLog[7], "2");
+
+    checkIntsEqual(interpret(&vm, "sqrt(\"four\");"), INTERPRET_RUNTIME_ERROR);
+
     return err_code;
 }
 

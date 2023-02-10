@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <assert.h>
+#include <math.h>
 #include <stdarg.h>
 #include <string.h>
 #include <time.h>
@@ -9,40 +10,9 @@
 #include "compiler.h"
 #include "object.h"
 
-static Value clockNative(Value* args) {
-    return NUMBER_VAL((double) clock() / CLOCKS_PER_SEC);
-}
-
-static void defineNative(VM* vm, const char* name, NativeFn function, uint8_t arity) {
-    push(vm, OBJ_VAL(copyString(vm, name, strlen(name))));
-    push(vm, OBJ_VAL(newNative(vm, function, arity)));
-    tableSet(&vm->globals, AS_STRING(vm->stack.values[0]), vm->stack.values[1]);
-    pop(vm);
-    pop(vm);
-}
-
 static void resetStack(VM* vm) {
     vm->stack.count = 0;
     vm->frameCount = 0;
-}
-
-void initVM(FreeList* freeList, VM* vm) {
-    vm->freeList = freeList;
-    initValueArray(&vm->stack);
-    resetStack(vm);
-    vm->objects = NULL;
-    initTable(freeList, &vm->globals);
-    initTable(freeList, &vm->strings);
-    vm->print = printf;
-
-    defineNative(vm, "clock", clockNative, 0);
-}
-
-void freeVM(VM* vm) {
-    freeTable(&vm->globals);
-    freeTable(&vm->strings);
-    freeValueArray(vm->freeList, &vm->stack);
-    freeObjects(vm);
 }
 
 static void runtimeError(VM* vm, const char* format, ...) {
@@ -66,6 +36,49 @@ static void runtimeError(VM* vm, const char* format, ...) {
     }
 
     resetStack(vm);
+}
+
+static bool clockNative(VM* vm, Value* out, Value* args) {
+    *out = NUMBER_VAL((double) clock() / CLOCKS_PER_SEC);
+    return true;
+}
+
+static bool sqrtNative(VM* vm, Value* out, Value* args) {
+    if (IS_NUMBER(*args)) {
+        *out = NUMBER_VAL(sqrt(AS_NUMBER(*args)));
+        return true;
+    } else {
+        runtimeError(vm, "Type error.");
+        return false;
+    }
+}
+
+static void defineNative(VM* vm, const char* name, NativeFn function, uint8_t arity) {
+    push(vm, OBJ_VAL(copyString(vm, name, strlen(name))));
+    push(vm, OBJ_VAL(newNative(vm, function, arity)));
+    tableSet(&vm->globals, AS_STRING(vm->stack.values[0]), vm->stack.values[1]);
+    pop(vm);
+    pop(vm);
+}
+
+void initVM(FreeList* freeList, VM* vm) {
+    vm->freeList = freeList;
+    initValueArray(&vm->stack);
+    resetStack(vm);
+    vm->objects = NULL;
+    initTable(freeList, &vm->globals);
+    initTable(freeList, &vm->strings);
+    vm->print = printf;
+
+    defineNative(vm, "clock", clockNative, 0);
+    defineNative(vm, "sqrt", sqrtNative, 1);
+}
+
+void freeVM(VM* vm) {
+    freeTable(&vm->globals);
+    freeTable(&vm->strings);
+    freeValueArray(vm->freeList, &vm->stack);
+    freeObjects(vm);
 }
 
 static bool isFalsey(Value value) {
@@ -101,10 +114,15 @@ static bool callValue(VM* vm, Value callee, uint8_t argumentCount) {
                     runtimeError(vm, "Expected %d arguments but got %d", native->arity, argumentCount);
                     return false;
                 }
-                Value result = native->function(vm->stack.values + vm->stack.count - argumentCount);
-                vm->stack.count -= argumentCount + 1;
-                push(vm, result);
-                return true;
+                Value result;
+                bool successful = native->function(vm, &result, vm->stack.values + vm->stack.count - argumentCount);
+                if (successful) {
+                    vm->stack.count -= argumentCount + 1;
+                    push(vm, result);
+                    return true;
+                } else {
+                    return false;
+                }
             }
             default:
                 break;

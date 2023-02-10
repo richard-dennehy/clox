@@ -30,7 +30,7 @@ struct ObjFunction {
     ObjString* name;
 };
 
-typedef Value (*NativeFn)(Value* args);
+typedef bool (*NativeFn)(VM* vm, Value* out, Value* args);
 
 struct ObjNative {
     Obj obj;
