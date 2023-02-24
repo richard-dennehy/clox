@@ -147,6 +147,8 @@ uint32_t disassembleInstruction(Chunk* chunk, uint32_t offset) {
             return longInstruction("OP_GET_UPVALUE_LONG", chunk, offset);
         case OP_SET_UPVALUE_LONG:
             return longInstruction("OP_SET_UPVALUE_LONG", chunk, offset);
+        case OP_CLOSE_UPVALUE:
+            return simpleInstruction("OP_CLOSE_UPVALUE", offset);
         default:
             printf("Unknown opcode %d\n", instruction);
             return offset + 1;

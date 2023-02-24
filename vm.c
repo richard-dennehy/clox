@@ -13,6 +13,7 @@
 static void resetStack(VM* vm) {
     vm->stack.count = 0;
     vm->frameCount = 0;
+    vm->openUpvalues = NULL;
 }
 
 static void runtimeError(VM* vm, const char* format, ...) {
@@ -148,8 +149,37 @@ static void concatenate(VM* vm) {
 }
 
 static ObjUpvalue* captureUpvalue(VM* vm, Value* local) {
+    ObjUpvalue* prevUpvalue = NULL;
+    ObjUpvalue* upvalue = vm->openUpvalues;
+
+    while (upvalue && upvalue->location > local) {
+        prevUpvalue = upvalue;
+        upvalue = upvalue->next;
+    }
+
+    if (upvalue && upvalue->location == local) {
+        return upvalue;
+    }
+
     ObjUpvalue* createdUpvalue = newUpvalue(vm, local);
+    createdUpvalue->next = upvalue;
+
+    if (prevUpvalue) {
+        prevUpvalue->next = createdUpvalue;
+    } else {
+        vm->openUpvalues = createdUpvalue;
+    }
+
     return createdUpvalue;
+}
+
+static void closeUpvalues(VM* vm, Value* last) {
+    while (vm->openUpvalues && vm->openUpvalues->location >= last) {
+        ObjUpvalue* upvalue = vm->openUpvalues;
+        upvalue->closed = *upvalue->location;
+        upvalue->location = &upvalue->closed;
+        vm->openUpvalues = upvalue->next;
+    }
 }
 
 static InterpretResult run(VM* vm) {
@@ -354,8 +384,14 @@ static InterpretResult run(VM* vm) {
             case OP_GET_UPVALUE_LONG:
             case OP_SET_UPVALUE_LONG:
                 assert(!"Not implemented");
+            case OP_CLOSE_UPVALUE: {
+                closeUpvalues(vm, vm->stack.values + vm->stack.count - 1);
+                pop(vm);
+                break;
+            }
             case OP_RETURN: {
                 Value result = pop(vm);
+                closeUpvalues(vm, vm->stack.values + frame->base);
                 if (--vm->frameCount == 0) {
                     pop(vm);
                     return INTERPRET_OK;

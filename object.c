@@ -117,6 +117,8 @@ ObjString* takeString(VM* vm, char* chars, uint32_t length) {
 ObjUpvalue* newUpvalue(VM* vm, Value* slot) {
     ObjUpvalue* upvalue = ALLOCATE_OBJ(ObjUpvalue, OBJ_UPVALUE);
     upvalue->location = slot;
+    upvalue->next = NULL;
+    upvalue->closed = NIL_VAL;
     return upvalue;
 }
 

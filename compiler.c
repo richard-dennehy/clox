@@ -32,6 +32,7 @@ typedef struct {
 typedef struct {
     Token name;
     int32_t depth;
+    bool isCaptured;
 } Local;
 
 typedef struct {
@@ -220,7 +221,11 @@ static void endScope(Parser* parser) {
 
     while (compiler->localArray.count > 0 &&
            compiler->localArray.locals[compiler->localArray.count - 1].depth > compiler->scopeDepth) {
-        emitByte(parser, OP_POP);
+        if (compiler->localArray.locals[compiler->localArray.count - 1].isCaptured) {
+            emitByte(parser, OP_CLOSE_UPVALUE);
+        } else {
+            emitByte(parser, OP_POP);
+        }
         compiler->localArray.count--;
     }
 }
@@ -231,6 +236,7 @@ static void addLocal(Parser* parser, Token name) {
     Local local = {
             .name = name,
             .depth = -1,
+            .isCaptured = false,
     };
     writeLocal(parser->freeList, &compiler->localArray, local);
 }
@@ -678,6 +684,7 @@ static int32_t resolveUpvalue(Parser* parser, Compiler* compiler, Token* name) {
     int32_t local = resolveLocal(parser, compiler->enclosing, name);
     if (local != -1) {
         assert(local <= UINT8_MAX || !"Too many locals");
+        compiler->localArray.locals[local].isCaptured = true;
         return (int32_t) addUpvalue(parser, compiler, (uint8_t) local, true);
     }
     int32_t upvalue = resolveUpvalue(parser, compiler->enclosing, name);
@@ -819,7 +826,8 @@ static void initCompiler(Parser* parser, Compiler* compiler, FunctionType type) 
             .name = {
                     .start = "",
                     .length = 0,
-            }
+            },
+            .isCaptured = false,
     };
     writeLocal(parser->freeList, &compiler->localArray, local);
 }
