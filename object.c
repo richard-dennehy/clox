@@ -51,6 +51,12 @@ ObjFunction* newFunction(VM* vm) {
     return function;
 }
 
+ObjClosure* newClosure(VM* vm, ObjFunction* function) {
+    ObjClosure* closure = ALLOCATE_OBJ(ObjClosure, OBJ_CLOSURE);
+    closure->function = function;
+    return closure;
+}
+
 ObjNative* newNative(VM* vm, NativeFn function, uint8_t arity) {
     ObjNative* native = ALLOCATE_OBJ(ObjNative, OBJ_NATIVE);
     native->function = function;
@@ -68,6 +74,10 @@ static void printFunction(Printer* print, ObjFunction* function) {
 
 void printObject(Printer* print, Value value) {
     switch (OBJ_TYPE(value)) {
+        case OBJ_CLOSURE: {
+            printFunction(print, AS_CLOSURE(value)->function);
+            break;
+        }
         case OBJ_FUNCTION:
             printFunction(print, AS_FUNCTION(value));
             break;
@@ -93,6 +103,10 @@ ObjString* takeString(VM* vm, char* chars, uint32_t length) {
 
 static void freeObject(FreeList* freeList, Obj* object) {
     switch(object->type) {
+        case OBJ_CLOSURE: {
+            FREE(ObjClosure, object);
+            break;
+        }
         case OBJ_FUNCTION: {
             ObjFunction* function = (ObjFunction*) object;
             freeChunk(freeList, &function->chunk);

@@ -25,13 +25,13 @@ static void runtimeError(VM* vm, const char* format, ...) {
 
     for (int32_t i = vm->frameCount - 1; i >= 0; i--) {
         CallFrame* frame = vm->frames + i;
-        size_t instruction = frame->ip - frame->function->chunk.code - 1;
-        uint32_t line = getLine(&frame->function->chunk, instruction);
+        size_t instruction = frame->ip - frame->closure->function->chunk.code - 1;
+        uint32_t line = getLine(&frame->closure->function->chunk, instruction);
         fprintf(stderr, "\033[1;31m[line %d] in ", line);
-        if (!frame->function->name) {
+        if (!frame->closure->function->name) {
             fprintf(stderr, "script\n\033[0m");
         } else {
-            fprintf(stderr, "%s()\n\033[0m", frame->function->name->chars);
+            fprintf(stderr, "%s()\n\033[0m", frame->closure->function->name->chars);
         }
     }
 
@@ -85,9 +85,9 @@ static bool isFalsey(Value value) {
     return IS_NIL(value) || (IS_BOOL(value) && !AS_BOOL(value));
 }
 
-static bool call(VM* vm, ObjFunction* function, uint8_t argumentCount) {
-    if (argumentCount != function->arity) {
-        runtimeError(vm, "Expected %d arguments but got %d.", function->arity, argumentCount);
+static bool call(VM* vm, ObjClosure* closure, uint8_t argumentCount) {
+    if (argumentCount != closure->function->arity) {
+        runtimeError(vm, "Expected %d arguments but got %d.", closure->function->arity, argumentCount);
         return false;
     }
 
@@ -97,8 +97,8 @@ static bool call(VM* vm, ObjFunction* function, uint8_t argumentCount) {
     }
 
     CallFrame* frame = vm->frames + vm->frameCount++;
-    frame->function = function;
-    frame->ip = function->chunk.code;
+    frame->closure = closure;
+    frame->ip = closure->function->chunk.code;
     frame->base = vm->stack.count - argumentCount - 1;
     return true;
 }
@@ -106,8 +106,8 @@ static bool call(VM* vm, ObjFunction* function, uint8_t argumentCount) {
 static bool callValue(VM* vm, Value callee, uint8_t argumentCount) {
     if (IS_OBJ(callee)) {
         switch (OBJ_TYPE(callee)) {
-            case OBJ_FUNCTION:
-                return call(vm, AS_FUNCTION(callee), argumentCount);
+            case OBJ_CLOSURE:
+                return call(vm, AS_CLOSURE(callee), argumentCount);
             case OBJ_NATIVE: {
                 ObjNative* native = AS_NATIVE(callee);
                 if (argumentCount != native->arity) {
@@ -150,6 +150,7 @@ static void concatenate(VM* vm) {
 static InterpretResult run(VM* vm) {
     CallFrame* frame = vm->frames + vm->frameCount - 1;
 
+// TODO (maybe) store the ip in a register - need to ensure the ip is stored/loaded properly when the frame changes
 #define READ_BYTE (*frame->ip++)
 #define READ_LONG ((READ_BYTE << 16) | (READ_BYTE << 8) | READ_BYTE)
 #define READ_SHORT ((READ_BYTE << 8) | (READ_BYTE))
@@ -163,8 +164,9 @@ static InterpretResult run(VM* vm) {
     double a = AS_NUMBER(PEEK(0));    \
     PEEK(0) = valueType(a op b);\
 } while (false)
+#define READ_CONSTANT(index) (frame->closure->function->chunk.constants.values[index])
 
-    while (frame->ip < frame->function->chunk.code + frame->function->chunk.count) {
+    while (frame->ip < frame->closure->function->chunk.code + frame->closure->function->chunk.count) {
 #ifdef DEBUG_TRACE_EXECUTION
         printf("          ");
         for (uint32_t i = 0; i < vm->stack.count; i++) {
@@ -173,7 +175,7 @@ static InterpretResult run(VM* vm) {
             printf("]");
         }
         printf("\n");
-        disassembleInstruction(&frame->function->chunk, (uint32_t) (frame->ip - frame->function->chunk.code));
+        disassembleInstruction(&frame->closure->function->chunk, (uint32_t) (frame->ip - frame->closure->function->chunk.code));
 #endif
         uint8_t instruction;
         switch (instruction = READ_BYTE) {
@@ -220,13 +222,13 @@ static InterpretResult run(VM* vm) {
             case OP_CONSTANT:
             case OP_CONSTANT_LONG: {
                 uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
-                push(vm, frame->function->chunk.constants.values[index]);
+                push(vm, READ_CONSTANT(index));
                 break;
             }
             case OP_DEFINE_GLOBAL:
             case OP_DEFINE_GLOBAL_LONG: {
                 uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
-                ObjString* name = AS_STRING(frame->function->chunk.constants.values[index]);
+                ObjString* name = AS_STRING(READ_CONSTANT(index));
                 tableSet(&vm->globals, name, PEEK(0));
                 pop(vm);
                 break;
@@ -234,7 +236,7 @@ static InterpretResult run(VM* vm) {
             case OP_GET_GLOBAL:
             case OP_GET_GLOBAL_LONG: {
                 uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
-                ObjString* name = AS_STRING(frame->function->chunk.constants.values[index]);
+                ObjString* name = AS_STRING(READ_CONSTANT(index));
                 Value value;
                 if (!tableGet(&vm->globals, name, &value)) {
                     runtimeError(vm, "Undefined variable '%s'.", name->chars);
@@ -246,7 +248,7 @@ static InterpretResult run(VM* vm) {
             case OP_SET_GLOBAL:
             case OP_SET_GLOBAL_LONG: {
                 uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
-                ObjString* name = AS_STRING(frame->function->chunk.constants.values[index]);
+                ObjString* name = AS_STRING(READ_CONSTANT(index));
                 if (tableSet(&vm->globals, name, PEEK(0))) {
                     tableDelete(&vm->globals, name);
                     runtimeError(vm, "Undefined variable '%s'", name);
@@ -318,6 +320,12 @@ static InterpretResult run(VM* vm) {
                 frame = vm->frames + vm->frameCount - 1;
                 break;
             }
+            case OP_CLOSURE: {
+                ObjFunction* function = AS_FUNCTION(READ_CONSTANT(READ_BYTE));
+                ObjClosure* closure = newClosure(vm, function);
+                push(vm, OBJ_VAL(closure));
+                break;
+            }
             case OP_RETURN: {
                 Value result = pop(vm);
                 if (--vm->frameCount == 0) {
@@ -347,7 +355,10 @@ InterpretResult interpret(VM* vm, const char* source) {
     if (!function) return INTERPRET_COMPILE_ERROR;
 
     push(vm, OBJ_VAL(function));
-    call(vm, function, 0);
+    ObjClosure* closure = newClosure(vm, function);
+    pop(vm);
+    push(vm, OBJ_VAL(closure));
+    call(vm, closure, 0);
 
     return run(vm);
 }

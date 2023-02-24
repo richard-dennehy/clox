@@ -6,6 +6,7 @@
 #include "vm.h"
 
 typedef enum {
+    OBJ_CLOSURE,
     OBJ_FUNCTION,
     OBJ_NATIVE,
     OBJ_STRING,
@@ -30,6 +31,11 @@ struct ObjFunction {
     ObjString* name;
 };
 
+struct ObjClosure {
+    Obj obj;
+    ObjFunction* function;
+};
+
 typedef bool (*NativeFn)(VM* vm, Value* out, Value* args);
 
 struct ObjNative {
@@ -41,6 +47,7 @@ struct ObjNative {
 ObjString* copyString(VM* vm, const char* chars, uint32_t length);
 ObjString* takeString(VM* vm, char* chars, uint32_t length);
 ObjFunction* newFunction(VM* vm);
+ObjClosure* newClosure(VM* vm, ObjFunction* objFunction);
 ObjNative* newNative(VM* vm, NativeFn function, uint8_t arity);
 void printObject(Printer* print, Value value);
 void freeObjects(VM* vm);
@@ -55,8 +62,10 @@ static inline bool isObjType(Value value, ObjType type) {
 #define AS_STRING(value) ((ObjString*) AS_OBJ(value))
 #define AS_CSTRING(value) (AS_STRING(value)->chars)
 
+#define IS_CLOSURE(value) isObjType(value, OBJ_CLOSURE)
 #define IS_FUNCTION(value) isObjType(value, OBJ_FUNCTION)
 #define IS_NATIVE(value) isObjType(value, OBJ_NATIVE)
+#define AS_CLOSURE(value) ((ObjClosure*) AS_OBJ(value))
 #define AS_FUNCTION(value) ((ObjFunction*) AS_OBJ(value))
 #define AS_NATIVE(value) (((ObjNative*) AS_OBJ(value)))
 

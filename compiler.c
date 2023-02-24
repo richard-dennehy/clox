@@ -323,7 +323,10 @@ static void function(Parser* parser, FunctionType type) {
     block(parser);
 
     ObjFunction* function = endCompiler(parser);
-    emitBytes(parser, OP_CONSTANT, makeConstant(parser, OBJ_VAL(function)));
+    uint32_t index = makeConstant(parser, OBJ_VAL(function));
+    // TODO support wide closure instruction - could have 256 constants then be unable to define any closures (or functions)
+    assert(index <= UINT8_MAX || !"Too many constants");
+    emitBytes(parser, OP_CLOSURE, index);
 }
 
 static void funDeclaration(Parser* parser) {

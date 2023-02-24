@@ -122,6 +122,14 @@ uint32_t disassembleInstruction(Chunk* chunk, uint32_t offset) {
             return jumpInstruction("OP_LOOP", chunk, -1, offset);
         case OP_CALL:
             return byteInstruction("OP_CALL", chunk, offset);
+        case OP_CLOSURE: {
+            offset++;
+            uint8_t constant = chunk->code[offset++];
+            printf("%-16s %4d ", "OP_CLOSURE", constant);
+            printValue(printf, chunk->constants.values[constant]);
+            printf("\n");
+            return offset;
+        }
 
         default:
             printf("Unknown opcode %d\n", instruction);
