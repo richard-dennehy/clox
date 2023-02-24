@@ -147,6 +147,11 @@ static void concatenate(VM* vm) {
     push(vm, OBJ_VAL(result));
 }
 
+static ObjUpvalue* captureUpvalue(VM* vm, Value* local) {
+    ObjUpvalue* createdUpvalue = newUpvalue(vm, local);
+    return createdUpvalue;
+}
+
 static InterpretResult run(VM* vm) {
     CallFrame* frame = vm->frames + vm->frameCount - 1;
 
@@ -324,8 +329,31 @@ static InterpretResult run(VM* vm) {
                 ObjFunction* function = AS_FUNCTION(READ_CONSTANT(READ_BYTE));
                 ObjClosure* closure = newClosure(vm, function);
                 push(vm, OBJ_VAL(closure));
+                for (uint32_t i = 0; i < closure->upvalueCount; i++) {
+                    uint8_t isLocal = READ_BYTE;
+                    uint8_t index = READ_BYTE;
+
+                    if (isLocal) {
+                        closure->upvalues[i] = captureUpvalue(vm, vm->stack.values + frame->base + index);
+                    } else {
+                        closure->upvalues[i] = frame->closure->upvalues[index];
+                    }
+                }
                 break;
             }
+            case OP_GET_UPVALUE: {
+                uint8_t slot = READ_BYTE;
+                push(vm, *frame->closure->upvalues[slot]->location);
+                break;
+            }
+            case OP_SET_UPVALUE: {
+                uint8_t slot = READ_BYTE;
+                *frame->closure->upvalues[slot]->location = PEEK(0);
+                break;
+            }
+            case OP_GET_UPVALUE_LONG:
+            case OP_SET_UPVALUE_LONG:
+                assert(!"Not implemented");
             case OP_RETURN: {
                 Value result = pop(vm);
                 if (--vm->frameCount == 0) {

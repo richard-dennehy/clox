@@ -34,6 +34,11 @@ typedef struct {
     int32_t depth;
 } Local;
 
+typedef struct {
+    uint8_t index;
+    bool isLocal;
+} Upvalue;
+
 typedef enum {
     TYPE_FUNCTION,
     TYPE_SCRIPT,
@@ -72,6 +77,7 @@ typedef struct Compiler {
     FunctionType type;
 
     LocalArray localArray;
+    Upvalue upvalues[UINT8_COUNT];
     uint32_t scopeDepth;
 } Compiler;
 
@@ -327,6 +333,11 @@ static void function(Parser* parser, FunctionType type) {
     // TODO support wide closure instruction - could have 256 constants then be unable to define any closures (or functions)
     assert(index <= UINT8_MAX || !"Too many constants");
     emitBytes(parser, OP_CLOSURE, index);
+
+    for (uint32_t i = 0; i < function->upvalueCount; i++) {
+        emitByte(parser, compiler.upvalues[i].isLocal ? 1 : 0);
+        emitByte(parser, compiler.upvalues[i].index);
+    }
 }
 
 static void funDeclaration(Parser* parser) {
@@ -642,6 +653,41 @@ static int32_t resolveLocal(Parser* parser, Compiler* compiler, Token* name) {
     return -1;
 }
 
+static uint32_t addUpvalue(Parser* parser, Compiler* compiler, uint8_t index, bool isLocal) {
+    uint32_t upvalueCount = compiler->function->upvalueCount;
+
+    for (int32_t i = 0; i < upvalueCount; i++) {
+        Upvalue* upvalue = compiler->upvalues + i;
+        if (upvalue->index == index && upvalue->isLocal == isLocal) {
+            return i;
+        }
+    }
+
+    if (upvalueCount == UINT8_COUNT) {
+        error(parser, "Too many closure variables in function.");
+        return 0;
+    }
+    compiler->upvalues[upvalueCount].isLocal = isLocal;
+    compiler->upvalues[upvalueCount].index = index;
+    return compiler->function->upvalueCount++;
+}
+
+static int32_t resolveUpvalue(Parser* parser, Compiler* compiler, Token* name) {
+    if (!compiler->enclosing) return -1;
+
+    int32_t local = resolveLocal(parser, compiler->enclosing, name);
+    if (local != -1) {
+        assert(local <= UINT8_MAX || !"Too many locals");
+        return (int32_t) addUpvalue(parser, compiler, (uint8_t) local, true);
+    }
+    int32_t upvalue = resolveUpvalue(parser, compiler->enclosing, name);
+    if (upvalue != -1) {
+        return (int32_t) addUpvalue(parser, compiler, (uint8_t) upvalue, false);
+    }
+
+    return -1;
+}
+
 static void namedVariable(Parser* parser, Token name, bool canAssign) {
     OpCode getOp, setOp, getOpLong, setOpLong;
 
@@ -651,6 +697,11 @@ static void namedVariable(Parser* parser, Token name, bool canAssign) {
         getOpLong = OP_GET_LOCAL_LONG;
         setOp = OP_SET_LOCAL;
         setOpLong = OP_SET_LOCAL_LONG;
+    } else if ((argument = resolveUpvalue(parser, parser->compiler, &name)) != -1) {
+        getOp = OP_GET_UPVALUE;
+        getOpLong = OP_GET_UPVALUE_LONG;
+        setOp = OP_SET_UPVALUE;
+        setOpLong = OP_SET_UPVALUE_LONG;
     } else {
         argument = (int32_t) identifierConstant(parser, &name);
         getOp = OP_GET_GLOBAL;

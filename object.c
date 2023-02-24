@@ -45,6 +45,7 @@ ObjString* copyString(VM* vm, const char* chars, uint32_t length) {
 ObjFunction* newFunction(VM* vm) {
     ObjFunction* function = ALLOCATE_OBJ(ObjFunction, OBJ_FUNCTION);
     function->arity = 0;
+    function->upvalueCount = 0;
     function->name = NULL;
     initChunk(&function->chunk);
 
@@ -52,8 +53,17 @@ ObjFunction* newFunction(VM* vm) {
 }
 
 ObjClosure* newClosure(VM* vm, ObjFunction* function) {
+    FreeList* freeList = vm->freeList;
+    ObjUpvalue** upvalues = ALLOCATE(ObjUpvalue*, function->upvalueCount);
+
+    for (uint32_t i = 0; i < function->upvalueCount; i++) {
+        upvalues[i] = NULL;
+    }
+
     ObjClosure* closure = ALLOCATE_OBJ(ObjClosure, OBJ_CLOSURE);
     closure->function = function;
+    closure->upvalues = upvalues;
+    closure->upvalueCount = function->upvalueCount;
     return closure;
 }
 
@@ -87,6 +97,9 @@ void printObject(Printer* print, Value value) {
         case OBJ_STRING:
             print("%s", AS_CSTRING(value));
             break;
+        case OBJ_UPVALUE:
+            print("upvalue");
+            break;
     }
 }
 
@@ -101,9 +114,17 @@ ObjString* takeString(VM* vm, char* chars, uint32_t length) {
     return allocateString(vm, chars, length, hash);
 }
 
+ObjUpvalue* newUpvalue(VM* vm, Value* slot) {
+    ObjUpvalue* upvalue = ALLOCATE_OBJ(ObjUpvalue, OBJ_UPVALUE);
+    upvalue->location = slot;
+    return upvalue;
+}
+
 static void freeObject(FreeList* freeList, Obj* object) {
     switch(object->type) {
         case OBJ_CLOSURE: {
+            ObjClosure* closure = (ObjClosure*) object;
+            FREE_ARRAY(ObjUpvalue*, closure->upvalues, closure->upvalueCount);
             FREE(ObjClosure, object);
             break;
         }
@@ -121,6 +142,10 @@ static void freeObject(FreeList* freeList, Obj* object) {
             ObjString* string = (ObjString*) object;
             FREE_ARRAY(char, string->chars, string->length + 1);
             FREE(ObjString, object);
+            break;
+        }
+        case OBJ_UPVALUE: {
+            FREE(ObjUpvalue, object);
             break;
         }
     }

@@ -16,6 +16,7 @@ typedef struct ObjString ObjString;
 typedef struct ObjFunction ObjFunction;
 typedef struct ObjClosure ObjClosure;
 typedef struct ObjNative ObjNative;
+typedef struct ObjUpvalue ObjUpvalue;
 
 typedef struct {
     ValueType type;
