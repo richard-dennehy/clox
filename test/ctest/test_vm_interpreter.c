@@ -349,7 +349,8 @@ int testLocals() {
     checkStringsEqual(printLog[6], "385");
 
     // can only assign to valid assigment target
-    checkIntsEqual(interpret(&vm, "var a = 0; var b = 1; var c = 2; var d = 3; a + b = c + d"), INTERPRET_COMPILE_ERROR);
+    checkIntsEqual(interpret(&vm, "var a = 0; var b = 1; var c = 2; var d = 3; a + b = c + d"),
+                   INTERPRET_COMPILE_ERROR);
 
     freeVM(&vm);
     freeMemory(&freeList);
@@ -394,7 +395,8 @@ int testControlFlow() {
     checkStringsEqual(printLog[6], "2");
 
     // TODO test infinite for loops i.e. `for (;;)` once there's a way to break out
-    INTERPRET("var done = false; for (; !done;) { print \"for initialiser and increment are optional\"; done = true; }");
+    INTERPRET(
+            "var done = false; for (; !done;) { print \"for initialiser and increment are optional\"; done = true; }");
     checkIntsEqual(printed, 8);
     checkStringsEqual(printLog[7], "for initialiser and increment are optional");
 
@@ -404,7 +406,8 @@ int testControlFlow() {
     checkStringsEqual(printLog[9], "for initialiser is optional");
     checkStringsEqual(printLog[10], "for initialiser is optional");
 
-    INTERPRET("var i = 100; for (i = 0; i < 3; i = i + 1) { print \"for initialiser doesn't need to be a var declaration\"; }");
+    INTERPRET(
+            "var i = 100; for (i = 0; i < 3; i = i + 1) { print \"for initialiser doesn't need to be a var declaration\"; }");
     checkIntsEqual(printed, 14);
     checkStringsEqual(printLog[11], "for initialiser doesn't need to be a var declaration");
 
@@ -458,7 +461,8 @@ int testFunctions() {
     checkIntsEqual(printed, 5);
     checkStringsEqual(printLog[4], "12");
 
-    INTERPRET("fun weirdAdd(a, b) { if (b <= 0) { return a; } else { return weirdAdd(a + 1, b - 1); } } print weirdAdd(5, 10);");
+    INTERPRET(
+            "fun weirdAdd(a, b) { if (b <= 0) { return a; } else { return weirdAdd(a + 1, b - 1); } } print weirdAdd(5, 10);");
     checkIntsEqual(printed, 6);
     checkStringsEqual(printLog[5], "15");
 
@@ -484,10 +488,56 @@ int testFunctions() {
 
     checkIntsEqual(interpret(&vm, "sqrt(\"four\");"), INTERPRET_RUNTIME_ERROR);
 
+    freeVM(&vm);
+    freeMemory(&freeList);
+    return err_code;
+}
+
+int testClosures() {
+    int err_code = TEST_SUCCEEDED;
+    FreeList freeList;
+    VM vm;
+    initMemory(&freeList, 256 * 1024);
+    initVM(&freeList, &vm);
+    resetPrintLog();
+    vm.print = fakePrintf;
+
+    const char* simpleClosure =
+            "fun outer() {\n"
+            "  var x = \"outside\";\n"
+            "  fun inner() {\n"
+            "    print x;\n"
+            "  }\n"
+            "  inner();\n"
+            "}\n"
+            "outer();";
+    INTERPRET(simpleClosure);
+    checkIntsEqual(printed, 1);
+    checkStringsEqual(printLog[0], "outside");
+
+    const char* escapesFromStack =
+            "fun outer() {\n"
+            "  var x = \"outside\";\n"
+            "  fun inner() {\n"
+            "    print x;\n"
+            "  }\n"
+            "\n"
+            "  return inner;\n"
+            "}\n"
+            "\n"
+            "var closure = outer();\n"
+            "closure();";
+
+    INTERPRET(escapesFromStack);
+    checkIntsEqual(printed, 2);
+    checkStringsEqual(printLog[1], "outside");
+
+    freeVM(&vm);
+    freeMemory(&freeList);
     return err_code;
 }
 
 int main() {
     return testGlobals() | testLocals() | testControlFlow() | testVmStack() | testVmArithmetic() | testNil() |
-           testBools() | testComparisons() | testStrings() | testFunctions();
+           testBools() | testComparisons() | testStrings() | testFunctions() | testClosures();
 }

@@ -842,6 +842,7 @@ ObjFunction* compile(VM* vm, const char* source) {
     parser.panicMode = false;
     parser.vm = vm;
     parser.freeList = vm->freeList;
+    parser.compiler = NULL;
 
     Compiler compiler;
     initCompiler(&parser, &compiler, TYPE_SCRIPT);
