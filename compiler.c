@@ -684,7 +684,7 @@ static int32_t resolveUpvalue(Parser* parser, Compiler* compiler, Token* name) {
     int32_t local = resolveLocal(parser, compiler->enclosing, name);
     if (local != -1) {
         assert(local <= UINT8_MAX || !"Too many locals");
-        compiler->localArray.locals[local].isCaptured = true;
+        compiler->enclosing->localArray.locals[local].isCaptured = true;
         return (int32_t) addUpvalue(parser, compiler, (uint8_t) local, true);
     }
     int32_t upvalue = resolveUpvalue(parser, compiler->enclosing, name);

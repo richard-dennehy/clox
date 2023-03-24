@@ -532,6 +532,59 @@ int testClosures() {
     checkIntsEqual(printed, 2);
     checkStringsEqual(printLog[1], "outside");
 
+    const char* closuresCaptureVariables =
+            "var globalSet;\n"
+            "var globalGet;\n"
+            "\n"
+            "fun main() {\n"
+            "  var a = \"initial\";\n"
+            "\n"
+            "  fun set() { a = \"updated\"; }\n"
+            "  fun get() { print a; }\n"
+            "\n"
+            "  globalSet = set;\n"
+            "  globalGet = get;\n"
+            "}\n"
+            "\n"
+            "main();\n"
+            "globalSet();\n"
+            "globalGet();";
+
+    INTERPRET(closuresCaptureVariables);
+    checkIntsEqual(printed, 3);
+    checkStringsEqual(printLog[2], "updated");
+
+    const char* capturingMultipleVariables =
+            "var globalOne;\n"
+            "var globalTwo;\n"
+            "\n"
+            "fun main() {\n"
+            "  {\n"
+            "    var a = \"one\";\n"
+            "    fun one() {\n"
+            "      print a;\n"
+            "    }\n"
+            "    globalOne = one;\n"
+            "  }\n"
+            "\n"
+            "  {\n"
+            "    var a = \"two\";\n"
+            "    fun two() {\n"
+            "      print a;\n"
+            "    }\n"
+            "    globalTwo = two;\n"
+            "  }\n"
+            "}\n"
+            "\n"
+            "main();\n"
+            "globalOne();\n"
+            "globalTwo();";
+
+    INTERPRET(capturingMultipleVariables);
+    checkIntsEqual(printed, 5);
+    checkStringsEqual(printLog[3], "one");
+    checkStringsEqual(printLog[4], "two");
+
     freeVM(&vm);
     freeMemory(&freeList);
     return err_code;
