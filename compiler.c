@@ -280,7 +280,7 @@ static void defineVariable(Parser* parser, uint32_t global) {
 }
 
 static uint32_t identifierConstant(Parser* parser, Token* name) {
-    return makeConstant(parser, OBJ_VAL(copyString(parser->vm, name->start, name->length)));
+    return makeConstant(parser, OBJ_VAL(copyString(parser->vm, parser->compiler, name->start, name->length)));
 }
 
 static uint32_t parseVariable(Parser* parser, const char* errorMessage) {
@@ -541,7 +541,7 @@ static void number(Parser* parser, UNUSED bool canAssign) {
 }
 
 static void string(Parser* parser, UNUSED bool canAssign) {
-    Value value = OBJ_VAL(copyString(parser->vm, parser->previous.start + 1, parser->previous.length - 2));
+    Value value = OBJ_VAL(copyString(parser->vm, parser->compiler, parser->previous.start + 1, parser->previous.length - 2));
     emitConstant(parser, value);
 }
 
@@ -814,11 +814,11 @@ static void initCompiler(Parser* parser, Compiler* compiler, FunctionType type) 
     compiler->scopeDepth = 0;
     compiler->type = type;
     compiler->function = NULL;
-    compiler->function = newFunction(parser->vm);
+    compiler->function = newFunction(parser->vm, parser->compiler);
 
     parser->compiler = compiler;
     if (type != TYPE_SCRIPT) {
-        compiler->function->name = copyString(parser->vm, parser->previous.start, parser->previous.length);
+        compiler->function->name = copyString(parser->vm, parser->compiler, parser->previous.start, parser->previous.length);
     }
 
     Local local = {

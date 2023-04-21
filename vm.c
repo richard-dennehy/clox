@@ -55,8 +55,8 @@ static bool sqrtNative(VM* vm, Value* out, Value* args) {
 }
 
 static void defineNative(VM* vm, const char* name, NativeFn function, uint8_t arity) {
-    push(vm, OBJ_VAL(copyString(vm, name, strlen(name))));
-    push(vm, OBJ_VAL(newNative(vm, function, arity)));
+    push(vm, OBJ_VAL(copyString(vm, NULL, name, strlen(name))));
+    push(vm, OBJ_VAL(newNative(vm, NULL, function, arity)));
     tableSet(vm, &vm->globals, AS_STRING(vm->stack.values[0]), vm->stack.values[1]);
     pop(vm);
     pop(vm);
@@ -143,7 +143,7 @@ static void concatenate(VM* vm) {
     memcpy(chars + a->length, b->chars, b->length);
     chars[length] = '\0';
 
-    ObjString* result = takeString(vm, chars, length);
+    ObjString* result = takeString(vm, NULL, chars, length);
     push(vm, OBJ_VAL(result));
 }
 
@@ -160,7 +160,7 @@ static ObjUpvalue* captureUpvalue(VM* vm, Value* local) {
         return upvalue;
     }
 
-    ObjUpvalue* createdUpvalue = newUpvalue(vm, local);
+    ObjUpvalue* createdUpvalue = newUpvalue(vm, NULL, local);
     createdUpvalue->next = upvalue;
 
     if (prevUpvalue) {
@@ -362,7 +362,7 @@ static InterpretResult run(VM* vm) {
             }
             case OP_CLOSURE: {
                 ObjFunction* function = AS_FUNCTION(READ_CONSTANT(READ_BYTE));
-                ObjClosure* closure = newClosure(vm, function);
+                ObjClosure* closure = newClosure(vm, NULL, function);
                 push(vm, OBJ_VAL(closure));
                 for (uint32_t i = 0; i < closure->upvalueCount; i++) {
                     uint8_t isLocal = READ_BYTE;
@@ -424,7 +424,7 @@ InterpretResult interpret(VM* vm, const char* source) {
     if (!function) return INTERPRET_COMPILE_ERROR;
 
     push(vm, OBJ_VAL(function));
-    ObjClosure* closure = newClosure(vm, function);
+    ObjClosure* closure = newClosure(vm, NULL, function);
     pop(vm);
     push(vm, OBJ_VAL(closure));
     call(vm, closure, 0);

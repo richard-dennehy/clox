@@ -56,13 +56,12 @@ struct ObjNative {
     uint8_t arity;
 };
 
-// TODO pass Compiler ptrs for GC
-ObjString* copyString(VM* vm, const char* chars, uint32_t length);
-ObjString* takeString(VM* vm, char* chars, uint32_t length);
-ObjUpvalue* newUpvalue(VM* vm, Value* slot);
-ObjFunction* newFunction(VM* vm);
-ObjClosure* newClosure(VM* vm, ObjFunction* objFunction);
-ObjNative* newNative(VM* vm, NativeFn function, uint8_t arity);
+ObjString* copyString(VM* vm, Compiler* compiler, const char* chars, uint32_t length);
+ObjString* takeString(VM* vm, Compiler* compiler, char* chars, uint32_t length);
+ObjUpvalue* newUpvalue(VM* vm, Compiler* compiler, Value* slot);
+ObjFunction* newFunction(VM* vm, Compiler* compiler);
+ObjClosure* newClosure(VM* vm, Compiler* compiler, ObjFunction* objFunction);
+ObjNative* newNative(VM* vm, Compiler* compiler, NativeFn function, uint8_t arity);
 void printObject(Printer* print, Value value);
 void freeObjects(VM* vm);
 

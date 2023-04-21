@@ -209,7 +209,7 @@ int testStrings() {
 
     INTERPRET("var string = \"st\" + \"ri\" + \"ng\";");
     Value string;
-    ObjString* key = copyString(&vm, "string", strlen("string"));
+    ObjString* key = copyString(&vm, NULL, "string", strlen("string"));
     checkTrue(tableGet(&vm.globals, key, &string));
     checkIntsEqual(string.type, VAL_OBJ);
     checkIntsEqual(AS_OBJ(string)->type, OBJ_STRING);
@@ -247,7 +247,7 @@ int testGlobals() {
     vm.print = fakePrintf;
 
     Value global;
-    ObjString* key = copyString(&vm, "uninitialisedGlobal", strlen("uninitialisedGlobal"));
+    ObjString* key = copyString(&vm, NULL, "uninitialisedGlobal", strlen("uninitialisedGlobal"));
     INTERPRET("var uninitialisedGlobal;");
     checkTrue(tableGet(&vm.globals, key, &global));
     checkIntsEqual(global.type, VAL_NIL);
@@ -257,7 +257,7 @@ int testGlobals() {
     checkIntsEqual(global.type, VAL_NUMBER);
     checkIntsEqual(AS_NUMBER(global), 5);
 
-    key = copyString(&vm, "initialisedGlobal", strlen("initialisedGlobal"));
+    key = copyString(&vm, NULL, "initialisedGlobal", strlen("initialisedGlobal"));
     INTERPRET("var initialisedGlobal = false;");
     checkTrue(tableGet(&vm.globals, key, &global));
     checkIntsEqual(global.type, VAL_BOOL);
@@ -470,7 +470,7 @@ int testFunctions() {
 
     INTERPRET("var now = clock();");
     Value time;
-    ObjString* key = copyString(&vm, "now", strlen("now"));
+    ObjString* key = copyString(&vm, NULL, "now", strlen("now"));
     checkTrue(tableGet(&vm.globals, key, &time));
     checkIntsEqual(time.type, VAL_NUMBER);
     // not checking value as it's dependent on how fast the test runs
