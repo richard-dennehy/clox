@@ -12,36 +12,42 @@ void initMemory(FreeList* freeList, size_t size) {
     block->next = NULL;
 
     freeList->first = block;
-    freeList->ptr_ = allocation;
+    freeList->base_ = allocation;
 }
 
 void freeMemory(FreeList* freeList) {
-    free(freeList->ptr_);
-    freeList->ptr_ = NULL;
+    free(freeList->base_);
+    freeList->base_ = NULL;
     freeList->first = NULL;
 }
 
 // TODO potential improvements: keep list sorted in memory order; merge adjacent free blocks to reduce fragmentation
-void* reallocate(FreeList* freeList, void* pointer, size_t oldSize, size_t newSize) {
-    void* result = NULL;
+void* reallocate(VM* vm, Compiler* compiler, void* pointer, size_t oldSize, size_t newSize) {
+    uint8_t* result = NULL;
+
+    if (newSize > oldSize) {
+#ifdef DEBUG_STRESS_GC
+        collectGarbage(vm, compiler);
+#endif
+    }
 
     if (newSize) {
         // need to always allocate enough space to be able to reuse the space to store block metadata once it's freed
         if (newSize < sizeof(Block)) newSize = sizeof(Block);
 
-        Block** prevPtr = &freeList->first;
-        for (Block* block = freeList->first; block; block = block->next) {
+        Block** prevPtr = &vm->freeList->first;
+        for (Block* block = vm->freeList->first; block; block = block->next) {
             if (block->blockSize > newSize) {
-                Block* newBlock = (Block*) ((void*) (block) + newSize);
+                Block* newBlock = (Block*) ((uint8_t*) (block) + newSize);
                 newBlock->blockSize = block->blockSize - newSize;
                 newBlock->next = block->next;
                 *prevPtr = newBlock;
-                result = (void*) block;
+                result = (uint8_t*) block;
                 break;
             }
             if (block->blockSize == newSize) {
                 *prevPtr = block->next;
-                result = (void*) block;
+                result = (uint8_t*) block;
                 break;
             }
             prevPtr = &block->next;
@@ -50,14 +56,14 @@ void* reallocate(FreeList* freeList, void* pointer, size_t oldSize, size_t newSi
 
     if (pointer && oldSize) {
         if (oldSize < sizeof(Block)) oldSize = sizeof(Block);
-        Block* last = freeList->first;
+        Block* last = vm->freeList->first;
         while(last->next) {
             last = last->next;
         }
         if (result) {
             for (size_t i = 0; i < oldSize; i++) {
-                uint8_t* src = (uint8_t*) (pointer + i);
-                uint8_t* dst = (uint8_t*) (result + i);
+                uint8_t* src = (uint8_t*) pointer + i;
+                uint8_t* dst = result + i;
                 *dst = *src;
             }
         }
@@ -71,5 +77,7 @@ void* reallocate(FreeList* freeList, void* pointer, size_t oldSize, size_t newSi
         fprintf(stderr, "Failed to allocate memory for %zu bytes\n", newSize);
     }
 
-    return result;
+    return (void*) result;
 }
+
+void collectGarbage(UNUSED VM* vm, UNUSED Compiler* compiler) {}

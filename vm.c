@@ -39,7 +39,7 @@ static void runtimeError(VM* vm, const char* format, ...) {
     resetStack(vm);
 }
 
-static bool clockNative(VM* vm, Value* out, Value* args) {
+static bool clockNative(UNUSED VM* vm, Value* out, UNUSED Value* args) {
     *out = NUMBER_VAL((double) clock() / CLOCKS_PER_SEC);
     return true;
 }
@@ -57,7 +57,7 @@ static bool sqrtNative(VM* vm, Value* out, Value* args) {
 static void defineNative(VM* vm, const char* name, NativeFn function, uint8_t arity) {
     push(vm, OBJ_VAL(copyString(vm, name, strlen(name))));
     push(vm, OBJ_VAL(newNative(vm, function, arity)));
-    tableSet(&vm->globals, AS_STRING(vm->stack.values[0]), vm->stack.values[1]);
+    tableSet(vm, &vm->globals, AS_STRING(vm->stack.values[0]), vm->stack.values[1]);
     pop(vm);
     pop(vm);
 }
@@ -67,8 +67,8 @@ void initVM(FreeList* freeList, VM* vm) {
     initValueArray(&vm->stack);
     resetStack(vm);
     vm->objects = NULL;
-    initTable(freeList, &vm->globals);
-    initTable(freeList, &vm->strings);
+    initTable(&vm->globals);
+    initTable(&vm->strings);
     vm->print = printf;
 
     defineNative(vm, "clock", clockNative, 0);
@@ -76,9 +76,9 @@ void initVM(FreeList* freeList, VM* vm) {
 }
 
 void freeVM(VM* vm) {
-    freeTable(&vm->globals);
-    freeTable(&vm->strings);
-    freeValueArray(vm->freeList, &vm->stack);
+    freeTable(vm, &vm->globals);
+    freeTable(vm, &vm->strings);
+    freeValueArray(vm, &vm->stack);
     freeObjects(vm);
 }
 
@@ -134,12 +134,11 @@ static bool callValue(VM* vm, Value callee, uint8_t argumentCount) {
 }
 
 static void concatenate(VM* vm) {
-    FreeList* freeList = vm->freeList;
     ObjString* b = AS_STRING(pop(vm));
     ObjString* a = AS_STRING(pop(vm));
 
     uint32_t length = a->length + b->length;
-    char* chars = ALLOCATE(char, length + 1);
+    char* chars = VM_ALLOCATE(char, length + 1);
     memcpy(chars, a->chars, a->length);
     memcpy(chars + a->length, b->chars, b->length);
     chars[length] = '\0';
@@ -182,11 +181,17 @@ static void closeUpvalues(VM* vm, Value* last) {
     }
 }
 
+uint8_t readByte(CallFrame* frame) {
+    uint8_t result = *frame->ip;
+    ++frame->ip;
+    return result;
+}
+
 static InterpretResult run(VM* vm) {
     CallFrame* frame = vm->frames + vm->frameCount - 1;
 
 // TODO (maybe) store the ip in a register - need to ensure the ip is stored/loaded properly when the frame changes
-#define READ_BYTE (*frame->ip++)
+#define READ_BYTE (readByte(frame))
 #define READ_LONG ((READ_BYTE << 16) | (READ_BYTE << 8) | READ_BYTE)
 #define READ_SHORT ((READ_BYTE << 8) | (READ_BYTE))
 #define PEEK(distance) (vm->stack.values[vm->stack.count - 1 - distance])
@@ -264,7 +269,7 @@ static InterpretResult run(VM* vm) {
             case OP_DEFINE_GLOBAL_LONG: {
                 uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
                 ObjString* name = AS_STRING(READ_CONSTANT(index));
-                tableSet(&vm->globals, name, PEEK(0));
+                tableSet(vm, &vm->globals, name, PEEK(0));
                 pop(vm);
                 break;
             }
@@ -284,7 +289,7 @@ static InterpretResult run(VM* vm) {
             case OP_SET_GLOBAL_LONG: {
                 uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
                 ObjString* name = AS_STRING(READ_CONSTANT(index));
-                if (tableSet(&vm->globals, name, PEEK(0))) {
+                if (tableSet(vm, &vm->globals, name, PEEK(0))) {
                     tableDelete(&vm->globals, name);
                     runtimeError(vm, "Undefined variable '%s'", name);
                     return INTERPRET_RUNTIME_ERROR;
@@ -428,7 +433,7 @@ InterpretResult interpret(VM* vm, const char* source) {
 }
 
 void push(VM* vm, Value value) {
-    writeValue(vm->freeList, &vm->stack, value);
+    writeValue(vm, &vm->stack, value);
 }
 
 Value pop(VM* vm) {

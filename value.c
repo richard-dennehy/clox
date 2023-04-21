@@ -1,4 +1,5 @@
 #include <string.h>
+#include <assert.h>
 #include "value.h"
 #include "object.h"
 
@@ -8,18 +9,18 @@ void initValueArray(ValueArray* array) {
     array->count = 0;
 }
 
-void writeValue(FreeList* freeList, ValueArray* array, Value value) {
+void writeValue(VM* vm, ValueArray* array, Value value) {
     if (array->capacity < array->count + 1) {
         uint32_t oldCapacity = array->capacity;
         array->capacity = GROW_CAPACITY(array->capacity);
-        array->values = GROW_ARRAY(Value, array->values, oldCapacity, array->capacity);
+        array->values = VM_GROW_ARRAY(Value, array->values, oldCapacity, array->capacity);
     }
 
     array->values[array->count++] = value;
 }
 
-void freeValueArray(FreeList* freeList, ValueArray* array) {
-    FREE_ARRAY(Value, array->values, array->capacity);
+void freeValueArray(VM* vm, ValueArray* array) {
+    VM_FREE_ARRAY(Value, array->values, array->capacity);
     initValueArray(array);
 }
 
@@ -51,5 +52,7 @@ bool valuesEqual(Value a, Value b) {
             return AS_NUMBER(a) == AS_NUMBER(b);
         case VAL_OBJ:
             return AS_OBJ(a) == AS_OBJ(b);
+        default:
+            assert(!"Missing switch case");
     }
 }

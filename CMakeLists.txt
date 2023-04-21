@@ -2,6 +2,7 @@ cmake_minimum_required(VERSION 3.23 FATAL_ERROR)
 project(clox C)
 
 set(CMAKE_C_STANDARD 11)
+add_compile_options(-Wall -Wextra -pedantic -Werror)
 
 include_directories(.)
 

@@ -61,9 +61,9 @@ typedef struct {
 
 void initChunk(Chunk* chunk);
 
-void freeChunk(FreeList* freeList, Chunk* chunk);
+void freeChunk(VM* vm, Chunk* chunk);
 
-void writeChunk(FreeList* freeList, Chunk* chunk, uint8_t byte, uint32_t line);
+void writeChunk(VM* vm, Chunk* chunk, uint8_t byte, uint32_t line);
 
 uint32_t getLine(Chunk* chunk, uint32_t instructionIndex);
 

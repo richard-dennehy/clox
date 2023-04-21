@@ -1,19 +1,20 @@
 #include "chunk.h"
 #include "test_suite.h"
 
-int testLineCounter() {
+int testLineCounter(void) {
     int err_code = TEST_SUCCEEDED;
     FreeList freeList;
     initMemory(&freeList, 256 * 1024);
+    VM vm = {.freeList = &freeList};
     Chunk chunk;
     initChunk(&chunk);
 
     for (int i = 0; i < 5; i++) {
-        writeChunk(&freeList, &chunk, OP_RETURN, 10);
+        writeChunk(&vm, &chunk, OP_RETURN, 10);
     }
-    writeChunk(&freeList, &chunk, OP_RETURN, 11);
+    writeChunk(&vm, &chunk, OP_RETURN, 11);
     for (int i = 0; i < 100; i++) {
-        writeChunk(&freeList, &chunk, OP_RETURN, 99);
+        writeChunk(&vm, &chunk, OP_RETURN, 99);
     }
 
     checkIntsEqual(chunk.count, 106);
@@ -35,12 +36,12 @@ int testLineCounter() {
     checkIntsEqual(nextLine->instructions, 100);
     checkPtrsEqual(nextLine->next, NULL);
 
-    freeChunk(&freeList, &chunk);
+    freeChunk(&vm, &chunk);
     freeMemory(&freeList);
 
     return err_code;
 }
 
-int main() {
+int main(void) {
     return testLineCounter();
 }

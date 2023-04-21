@@ -9,20 +9,20 @@ void initChunk(Chunk* chunk) {
     initValueArray(&chunk->constants);
 }
 
-void freeChunk(FreeList* freeList, Chunk* chunk) {
-    FREE_ARRAY(uint8_t, chunk->code, chunk->count);
+void freeChunk(VM* vm, Chunk* chunk) {
+    VM_FREE_ARRAY(uint8_t, chunk->code, chunk->count);
     for (Line* line = chunk->firstLine; line;) {
         Line* next = line->next;
-        reallocate(freeList, line, sizeof(Line), 0);
+        VM_FREE(Line, line);
         line = next;
     }
-    freeValueArray(freeList, &chunk->constants);
+    freeValueArray(vm, &chunk->constants);
     initChunk(chunk);
 }
 
-static Line* newLine(FreeList* freeList, uint32_t lineNumber) {
+static Line* newLine(VM* vm, uint32_t lineNumber) {
     Line* line = NULL;
-    line = reallocate(freeList, line, 0, sizeof(Line));
+    line = VM_ALLOCATE(Line, 1);
     assert(line);
     line->lineNumber = lineNumber;
     line->instructions = 0;
@@ -31,9 +31,9 @@ static Line* newLine(FreeList* freeList, uint32_t lineNumber) {
     return line;
 }
 
-static void writeLine(FreeList* freeList, Chunk* chunk, uint32_t line) {
+static void writeLine(VM* vm, Chunk* chunk, uint32_t line) {
     if (!chunk->firstLine) {
-        chunk->firstLine = newLine(freeList, line);
+        chunk->firstLine = newLine(vm, line);
     }
 
     Line* closest = chunk->firstLine;
@@ -46,7 +46,7 @@ static void writeLine(FreeList* freeList, Chunk* chunk, uint32_t line) {
     if (closest->lineNumber == line) {
         closest->instructions += 1;
     } else {
-        Line* nextLine = newLine(freeList, line);
+        Line* nextLine = newLine(vm, line);
         nextLine->instructions += 1;
 
         // assuming that line numbers never decrease, otherwise this will overwrite existing links
@@ -55,14 +55,14 @@ static void writeLine(FreeList* freeList, Chunk* chunk, uint32_t line) {
     }
 }
 
-void writeChunk(FreeList* freeList, Chunk* chunk, uint8_t byte, uint32_t line) {
+void writeChunk(VM* vm, Chunk* chunk, uint8_t byte, uint32_t line) {
     if (chunk->capacity < chunk->count + 1) {
         uint32_t oldCapacity = chunk->capacity;
         chunk->capacity = GROW_CAPACITY(oldCapacity);
-        chunk->code = GROW_ARRAY(uint8_t, chunk->code, oldCapacity, chunk->capacity);
+        chunk->code = VM_GROW_ARRAY(uint8_t, chunk->code, oldCapacity, chunk->capacity);
     }
     chunk->code[chunk->count] = byte;
-    writeLine(freeList, chunk, line);
+    writeLine(vm, chunk, line);
 
     chunk->count++;
 }

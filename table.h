@@ -14,15 +14,14 @@ typedef struct {
     uint32_t count;
     uint32_t capacity;
     Entry* entries;
-    FreeList* freeList;
 } Table;
 
-void initTable(FreeList* freeList, Table* table);
-void freeTable(Table* table);
+void initTable(Table* table);
+void freeTable(VM* vm, Table* table);
 bool tableGet(Table* table, ObjString* key, Value* value);
-bool tableSet(Table* table, ObjString* key, Value value);
+bool tableSet(VM* vm, Table* table, ObjString* key, Value value);
 bool tableDelete(Table* table, ObjString* key);
-void tableAddAll(Table* from, Table* to);
+void tableAddAll(VM* vm, Table* from, Table* to);
 ObjString* tableFindString(Table* table, const char* chars, uint32_t length, uint32_t hash);
 
 #endif //CLOX_TABLE_H

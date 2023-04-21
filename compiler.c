@@ -57,30 +57,30 @@ static void initLocalArray(LocalArray* array) {
     array->count = 0;
 }
 
-static void writeLocal(FreeList* freeList, LocalArray* array, Local local) {
+static void writeLocal(VM* vm, LocalArray* array, Local local) {
     if (array->capacity < array->count + 1) {
         uint32_t oldCapacity = array->capacity;
         array->capacity = GROW_CAPACITY(array->capacity);
-        array->locals = GROW_ARRAY(Local, array->locals, oldCapacity, array->capacity);
+        array->locals = VM_GROW_ARRAY(Local, array->locals, oldCapacity, array->capacity);
     }
 
     array->locals[array->count++] = local;
 }
 
-static void freeLocalArray(FreeList* freeList, LocalArray* array) {
-    FREE_ARRAY(Value, array->locals, array->capacity);
+static void freeLocalArray(VM* vm, LocalArray* array) {
+    VM_FREE_ARRAY(Value, array->locals, array->capacity);
     initLocalArray(array);
 }
 
-typedef struct Compiler {
-    struct Compiler* enclosing;
+struct Compiler {
+    Compiler* enclosing;
     ObjFunction* function;
     FunctionType type;
 
     LocalArray localArray;
     Upvalue upvalues[UINT8_COUNT];
     uint32_t scopeDepth;
-} Compiler;
+};
 
 static void errorAt(Parser* parser, Token* token, const char* message) {
     if (parser->panicMode) return;
@@ -120,7 +120,7 @@ static Chunk* currentChunk(Parser* parser) {
 }
 
 static void emitByte(Parser* parser, uint8_t byte) {
-    writeChunk(parser->freeList, currentChunk(parser), byte, parser->previous.line);
+    writeChunk(parser->vm, currentChunk(parser), byte, parser->previous.line);
 }
 
 static void emitBytes(Parser* parser, uint8_t byte1, uint8_t byte2) {
@@ -144,7 +144,7 @@ static void emitVariableWidth(Parser* parser, uint8_t byteOp, uint8_t longOp, ui
 }
 
 static uint32_t makeConstant(Parser* parser, Value value) {
-    writeValue(parser->freeList, &currentChunk(parser)->constants, value);
+    writeValue(parser->vm, &currentChunk(parser)->constants, value);
     uint32_t index = currentChunk(parser)->constants.count - 1;
     assert(index < 1 << 24 || !"Way too many constants");
     return index;
@@ -220,7 +220,7 @@ static void endScope(Parser* parser) {
     compiler->scopeDepth--;
 
     while (compiler->localArray.count > 0 &&
-           compiler->localArray.locals[compiler->localArray.count - 1].depth > compiler->scopeDepth) {
+           compiler->localArray.locals[compiler->localArray.count - 1].depth > (int32_t) compiler->scopeDepth) {
         if (compiler->localArray.locals[compiler->localArray.count - 1].isCaptured) {
             emitByte(parser, OP_CLOSE_UPVALUE);
         } else {
@@ -238,7 +238,7 @@ static void addLocal(Parser* parser, Token name) {
             .depth = -1,
             .isCaptured = false,
     };
-    writeLocal(parser->freeList, &compiler->localArray, local);
+    writeLocal(parser->vm, &compiler->localArray, local);
 }
 
 static bool identifiersEqual(Token* a, Token* b) {
@@ -253,7 +253,7 @@ static void declareVariable(Parser* parser) {
     Token* name = &parser->previous;
     for (int32_t i = (int32_t) compiler->localArray.count - 1; i >= 0; i--) {
         Local* local = &compiler->localArray.locals[i];
-        if (local->depth != -1 && local->depth < compiler->scopeDepth) {
+        if (local->depth != -1 && (uint32_t) local->depth < compiler->scopeDepth) {
             break;
         }
 
@@ -322,10 +322,10 @@ static void function(Parser* parser, FunctionType type) {
     if (!check(parser, TOKEN_RIGHT_PAREN)) {
         do {
             Compiler* current = parser->compiler;
-            current->function->arity++;
-            if (current->function->arity > 255) {
+            if (current->function->arity == UINT8_MAX) {
                 errorAt(parser, &parser->current, "Can't have more than 255 parameters.");
             }
+            current->function->arity++;
             uint32_t constant = parseVariable(parser, "Expect parameter name.");
             defineVariable(parser, constant);
         } while (match(parser, TOKEN_COMMA));
@@ -535,17 +535,17 @@ static void statement(Parser* parser) {
     }
 }
 
-static void number(Parser* parser, bool canAssign) {
+static void number(Parser* parser, UNUSED bool canAssign) {
     Value value = NUMBER_VAL(strtod(parser->previous.start, NULL));
     emitConstant(parser, value);
 }
 
-static void string(Parser* parser, bool canAssign) {
+static void string(Parser* parser, UNUSED bool canAssign) {
     Value value = OBJ_VAL(copyString(parser->vm, parser->previous.start + 1, parser->previous.length - 2));
     emitConstant(parser, value);
 }
 
-static void grouping(Parser* parser, bool canAssign) {
+static void grouping(Parser* parser, UNUSED bool canAssign) {
     expression(parser);
     consume(parser, TOKEN_RIGHT_PAREN, "Expect ')' after expression.");
 }
@@ -566,12 +566,12 @@ static uint8_t argumentList(Parser* parser) {
     return argumentCount;
 }
 
-static void call(Parser* parser, bool canAssign) {
+static void call(Parser* parser, UNUSED bool canAssign) {
     uint8_t argumentCount = argumentList(parser);
     emitBytes(parser, OP_CALL, argumentCount);
 }
 
-static void unary(Parser* parser, bool canAssign) {
+static void unary(Parser* parser, UNUSED bool canAssign) {
     TokenType operator = parser->previous.type;
     parsePrecedence(parser, PREC_UNARY);
 
@@ -587,7 +587,7 @@ static void unary(Parser* parser, bool canAssign) {
     }
 }
 
-static void binary(Parser* parser, bool canAssign) {
+static void binary(Parser* parser, UNUSED bool canAssign) {
     TokenType operator = parser->previous.type;
     ParseRule* rule = getRule(operator);
     parsePrecedence(parser, (Precedence) (rule->precedence + 1));
@@ -628,7 +628,7 @@ static void binary(Parser* parser, bool canAssign) {
     }
 }
 
-static void literal(Parser* parser, bool canAssign) {
+static void literal(Parser* parser, UNUSED bool canAssign) {
     switch (parser->previous.type) {
         case TOKEN_NIL:
             emitByte(parser, OP_NIL);
@@ -662,7 +662,7 @@ static int32_t resolveLocal(Parser* parser, Compiler* compiler, Token* name) {
 static uint32_t addUpvalue(Parser* parser, Compiler* compiler, uint8_t index, bool isLocal) {
     uint32_t upvalueCount = compiler->function->upvalueCount;
 
-    for (int32_t i = 0; i < upvalueCount; i++) {
+    for (uint32_t i = 0; i < upvalueCount; i++) {
         Upvalue* upvalue = compiler->upvalues + i;
         if (upvalue->index == index && upvalue->isLocal == isLocal) {
             return i;
@@ -695,7 +695,7 @@ static int32_t resolveUpvalue(Parser* parser, Compiler* compiler, Token* name) {
     return -1;
 }
 
-static void namedVariable(Parser* parser, Token name, bool canAssign) {
+static void namedVariable(Parser* parser, Token name, UNUSED bool canAssign) {
     OpCode getOp, setOp, getOpLong, setOpLong;
 
     int32_t argument = resolveLocal(parser, parser->compiler, &name);
@@ -724,18 +724,18 @@ static void namedVariable(Parser* parser, Token name, bool canAssign) {
     }
 }
 
-static void variable(Parser* parser, bool canAssign) {
+static void variable(Parser* parser, UNUSED bool canAssign) {
     namedVariable(parser, parser->previous, canAssign);
 }
 
-static void and(Parser* parser, bool canAssign) {
+static void and(Parser* parser, UNUSED bool canAssign) {
     int32_t endJump = emitJump(parser, OP_JUMP_IF_FALSE);
     emitByte(parser, OP_POP);
     parsePrecedence(parser, PREC_AND);
     patchJump(parser, endJump);
 }
 
-static void or(Parser* parser, bool canAssign) {
+static void or(Parser* parser, UNUSED bool canAssign) {
     int32_t elseJump = emitJump(parser, OP_JUMP_IF_FALSE);
     int32_t endJump = emitJump(parser, OP_JUMP);
 
@@ -797,7 +797,7 @@ static ObjFunction* endCompiler(Parser* parser) {
     emitReturn(parser);
     ObjFunction* function = parser->compiler->function;
 
-    freeLocalArray(parser->freeList, &parser->compiler->localArray);
+    freeLocalArray(parser->vm, &parser->compiler->localArray);
 #ifdef DEBUG_PRINT_CODE
     if (!parser->hadError) {
         disassembleChunk(currentChunk(parser), function->name ? function->name->chars : "<script>");
@@ -829,7 +829,7 @@ static void initCompiler(Parser* parser, Compiler* compiler, FunctionType type) 
             },
             .isCaptured = false,
     };
-    writeLocal(parser->freeList, &compiler->localArray, local);
+    writeLocal(parser->vm, &compiler->localArray, local);
 }
 
 ObjFunction* compile(VM* vm, const char* source) {
@@ -841,7 +841,6 @@ ObjFunction* compile(VM* vm, const char* source) {
     parser.hadError = false;
     parser.panicMode = false;
     parser.vm = vm;
-    parser.freeList = vm->freeList;
     parser.compiler = NULL;
 
     Compiler compiler;

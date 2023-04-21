@@ -2,17 +2,15 @@
 #include "table.h"
 #include "object.h"
 
-void initTable(FreeList* freeList, Table* table) {
+void initTable(Table* table) {
     table->count = 0;
     table->capacity = 0;
     table->entries = NULL;
-    table->freeList = freeList;
 }
 
-void freeTable(Table* table) {
-    FreeList* freeList = table->freeList;
-    FREE_ARRAY(Entry, table->entries, table->capacity);
-    initTable(freeList, table);
+void freeTable(VM* vm, Table* table) {
+    VM_FREE_ARRAY(Entry, table->entries, table->capacity);
+    initTable(table);
 }
 
 static Entry* findEntry(Entry* entries, uint32_t capacity, ObjString* key) {
@@ -36,18 +34,17 @@ static Entry* findEntry(Entry* entries, uint32_t capacity, ObjString* key) {
     }
 }
 
-static void adjustCapacity(Table* table, uint32_t newCapacity) {
-    FreeList* freeList = table->freeList;
-    Entry* entries = ALLOCATE(Entry, newCapacity);
+static void adjustCapacity(VM* vm, Table* table, uint32_t newCapacity) {
+    Entry* entries = VM_ALLOCATE(Entry, newCapacity);
 
-    for (int i = 0; i < newCapacity; ++i) {
+    for (uint32_t i = 0; i < newCapacity; ++i) {
         entries[i].key = NULL;
         entries[i].value = NIL_VAL;
     }
 
     table->count = 0;
     // need to redistribute entries as the indexes depend on the capacity
-    for (int i = 0; i < table->capacity; ++i) {
+    for (uint32_t i = 0; i < table->capacity; ++i) {
         Entry* entry = &table->entries[i];
         if (!entry->key) continue;
 
@@ -57,15 +54,15 @@ static void adjustCapacity(Table* table, uint32_t newCapacity) {
         table->count++;
     }
 
-    FREE_ARRAY(Entry, table->entries, table->capacity);
+    VM_FREE_ARRAY(Entry, table->entries, table->capacity);
     table->entries = entries;
     table->capacity = newCapacity;
 }
 
-bool tableSet(Table* table, ObjString* key, Value value) {
+bool tableSet(VM* vm, Table* table, ObjString* key, Value value) {
     if (table->count + 1 > table->capacity * TABLE_MAX_LOAD) {
         uint32_t capacity = GROW_CAPACITY(table->capacity);
-        adjustCapacity(table, capacity);
+        adjustCapacity(vm, table, capacity);
     }
 
     Entry* entry = findEntry(table->entries, table->capacity, key);
@@ -87,11 +84,11 @@ bool tableGet(Table* table, ObjString* key, Value* value) {
     return true;
 }
 
-void tableAddAll(Table* from, Table* to) {
-    for (int i = 0; i < from->capacity; ++i) {
+void tableAddAll(VM* vm, Table* from, Table* to) {
+    for (uint32_t i = 0; i < from->capacity; ++i) {
         Entry* entry = &from->entries[i];
         if (entry->key) {
-            tableSet(to, entry->key, entry->value);
+            tableSet(vm, to, entry->key, entry->value);
         }
     }
 }

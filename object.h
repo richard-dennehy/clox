@@ -2,6 +2,7 @@
 #define CLOX_OBJECT_H
 
 #include "common.h"
+#include "chunk.h"
 #include "value.h"
 #include "vm.h"
 
@@ -55,6 +56,7 @@ struct ObjNative {
     uint8_t arity;
 };
 
+// TODO pass Compiler ptrs for GC
 ObjString* copyString(VM* vm, const char* chars, uint32_t length);
 ObjString* takeString(VM* vm, char* chars, uint32_t length);
 ObjUpvalue* newUpvalue(VM* vm, Value* slot);

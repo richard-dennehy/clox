@@ -2,7 +2,6 @@
 #define CLOX_VALUE_H
 
 #include "common.h"
-#include "memory.h"
 
 typedef enum {
     VAL_BOOL,
@@ -49,8 +48,8 @@ typedef struct {
 } ValueArray;
 
 void initValueArray(ValueArray* array);
-void writeValue(FreeList* freeList, ValueArray* array, Value value);
-void freeValueArray(FreeList* freeList, ValueArray* array);
+void writeValue(VM* vm, ValueArray* array, Value value);
+void freeValueArray(VM* vm, ValueArray* array);
 void printValue(Printer* print, Value value);
 bool valuesEqual(Value a, Value b);
 

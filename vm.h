@@ -1,10 +1,11 @@
 #ifndef CLOX_VM_H
 #define CLOX_VM_H
 
-#include "chunk.h"
 #include "table.h"
 
 #define FRAMES_MAX 64
+
+typedef struct FreeList FreeList;
 
 typedef struct {
     ObjClosure* closure;
@@ -12,7 +13,7 @@ typedef struct {
     uint32_t base;
 } CallFrame;
 
-typedef struct {
+struct VM {
     FreeList* freeList;
     CallFrame frames[FRAMES_MAX];
     uint8_t frameCount;
@@ -22,7 +23,7 @@ typedef struct {
     ObjUpvalue* openUpvalues;
     Obj* objects;
     Printer* print;
-} VM;
+};
 
 typedef enum {
     INTERPRET_OK,
