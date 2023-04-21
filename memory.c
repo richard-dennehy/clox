@@ -2,6 +2,9 @@
 #include <assert.h>
 #include <stdio.h>
 #include "memory.h"
+#ifdef DEBUG_LOG_GC
+#include "debug.h"
+#endif
 
 void initMemory(FreeList* freeList, size_t size) {
     void* allocation = malloc(size);
@@ -80,4 +83,19 @@ void* reallocate(VM* vm, Compiler* compiler, void* pointer, size_t oldSize, size
     return (void*) result;
 }
 
-void collectGarbage(UNUSED VM* vm, UNUSED Compiler* compiler) {}
+void collectGarbage(VM* vm, Compiler* compiler) {
+#ifdef DEBUG_LOG_GC
+    printf("-- gc begin\n");
+#endif
+
+    if (vm) {
+        markRoots(vm);
+    }
+    if (compiler) {
+        markCompilerRoots(compiler);
+    }
+
+#ifdef DEBUG_LOG_GC
+    printf("-- gc end\n");
+#endif
+}

@@ -16,6 +16,7 @@ typedef enum {
 
 struct Obj {
     ObjType type;
+    bool isMarked;
     struct Obj* next;
 };
 
@@ -64,6 +65,7 @@ ObjClosure* newClosure(VM* vm, Compiler* compiler, ObjFunction* objFunction);
 ObjNative* newNative(VM* vm, Compiler* compiler, NativeFn function, uint8_t arity);
 void printObject(Printer* print, Value value);
 void freeObjects(VM* vm);
+void markObject(Obj* object);
 
 static inline bool isObjType(Value value, ObjType type) {
     return IS_OBJ(value) && AS_OBJ(value)->type == type;

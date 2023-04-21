@@ -442,3 +442,18 @@ Value pop(VM* vm) {
     return vm->stack.values[--vm->stack.count];
 }
 
+void markRoots(VM* vm) {
+    for (uint32_t i = 0; i < vm->stack.count; i++) {
+        markValue(vm->stack.values[i]);
+    }
+
+    for (uint32_t i = 0; i < vm->frameCount; i++) {
+        markObject((Obj*) vm->frames[i].closure);
+    }
+
+    for (ObjUpvalue* upvalue = vm->openUpvalues; upvalue; upvalue = upvalue->next) {
+        markObject((Obj*) upvalue);
+    }
+
+    markTable(&vm->globals);
+}

@@ -52,5 +52,6 @@ void writeValue(VM* vm, ValueArray* array, Value value);
 void freeValueArray(VM* vm, ValueArray* array);
 void printValue(Printer* print, Value value);
 bool valuesEqual(Value a, Value b);
+void markValue(Value value);
 
 #endif //CLOX_VALUE_H

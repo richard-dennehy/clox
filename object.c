@@ -5,8 +5,14 @@
 static Obj* allocateObject(VM* vm, Compiler* compiler, size_t size, ObjType type) {
     Obj* object = (Obj*) reallocate(vm, compiler, NULL, 0, size);
     object->type = type;
+    object->isMarked = false;
     object->next = vm->objects;
     vm->objects = object;
+
+#ifdef DEBUG_LOG_GC
+    printf("%p allocate %zu for %d\n", (void*)object, size, type);
+#endif
+
     return object;
 }
 #define ALLOCATE_OBJ(type, objectType) (type*) allocateObject(vm, compiler, sizeof(type), objectType)
@@ -120,6 +126,10 @@ ObjUpvalue* newUpvalue(VM* vm, Compiler* compiler, Value* slot) {
 }
 
 static void freeObject(VM* vm, Obj* object) {
+#ifdef DEBUG_LOG_GC
+    printf("%p free type %d\n", (void*)object, object->type);
+#endif
+
     switch(object->type) {
         case OBJ_CLOSURE: {
             ObjClosure* closure = (ObjClosure*) object;
@@ -157,4 +167,14 @@ void freeObjects(VM* vm) {
         freeObject(vm, object);
         object = next;
     }
+}
+
+void markObject(Obj* object) {
+    if (!object) return;
+#ifdef DEBUG_LOG_GC
+    printf("%p mark ", (void*) object);
+    printValue(printf, OBJ_VAL(object));
+    printf("\n");
+#endif
+    object->isMarked = true;
 }

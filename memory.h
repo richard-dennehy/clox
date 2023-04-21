@@ -15,14 +15,10 @@
     (type*) reallocate(vm, NULL, NULL, 0, sizeof(type) * count)
 #define VM_FREE(type, pointer) reallocate(vm, NULL, pointer, sizeof(type), 0)
 
-#define COMPILER_GROW_ARRAY(type, pointer, oldCount, newCount) \
-    (type*) reallocate(vm, compiler, pointer, sizeof(type) * (oldCount), \
-        sizeof(type) * (newCount))
-#define COMPILER_FREE_ARRAY(type, pointer, oldCount) \
-    (type*) reallocate(vm, compiler, pointer, sizeof(type) * (oldCount), 0)
+// need to be able to mark compiler objects if GC is triggered while compiling, but don't want to pass NULLs everywhere in the VM code
+// note that the compiler(s) are unreachable once compilation is done, so it's fine to implicitly GC any leftover objects from the compilation phase
 #define COMPILER_ALLOCATE(type, count) \
     (type*) reallocate(vm, compiler, NULL, 0, sizeof(type) * count)
-#define COMPILER_FREE(type, pointer) reallocate(vm, compiler, pointer, sizeof(type), 0)
 
 typedef struct Block {
     struct Block* next;
@@ -40,5 +36,7 @@ void initMemory(FreeList* freeList, size_t size);
 void freeMemory(FreeList* freeList);
 void* reallocate(VM* vm, Compiler* compiler, void* pointer, size_t oldSize, size_t newSize);
 void collectGarbage(VM* vm, Compiler* compiler);
+void markRoots(VM* vm);
+void markCompilerRoots(Compiler* compiler);
 
 #endif //CLOX_MEMORY_H

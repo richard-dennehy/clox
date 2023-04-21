@@ -56,3 +56,7 @@ bool valuesEqual(Value a, Value b) {
             assert(!"Missing switch case");
     }
 }
+
+void markValue(Value value) {
+    if (IS_OBJ(value)) markObject(AS_OBJ(value));
+}

@@ -852,3 +852,10 @@ ObjFunction* compile(VM* vm, const char* source) {
 
     return parser.hadError ? NULL : function;
 }
+
+void markCompilerRoots(Compiler* compiler) {
+    while (compiler) {
+        markObject((Obj*) compiler->function);
+        compiler = compiler->enclosing;
+    }
+}
