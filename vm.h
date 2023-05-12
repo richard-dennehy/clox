@@ -26,6 +26,8 @@ struct VM {
     uint32_t greyCount;
     uint32_t greyCapacity;
     Obj** greyStack;
+    size_t bytesAllocated;
+    size_t nextGC;
 };
 
 typedef enum {

@@ -74,6 +74,8 @@ void initVM(FreeList* freeList, VM* vm) {
     vm->greyCount = 0;
     vm->greyCapacity = 0;
     vm->greyStack = NULL;
+    vm->bytesAllocated = 0;
+    vm->nextGC = 1024 * 1024;
 
     defineNative(vm, "clock", clockNative, 0);
     defineNative(vm, "sqrt", sqrtNative, 1);

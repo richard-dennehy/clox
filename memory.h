@@ -4,6 +4,7 @@
 #include "common.h"
 #include "vm.h"
 
+#define GC_HEAP_GROW_FACTOR 2
 #define GROW_CAPACITY(capacity) \
     ((capacity) < 8 ? 8 : (capacity) * 2)
 #define VM_GROW_ARRAY(type, pointer, oldCount, newCount) \
@@ -38,6 +39,5 @@ void* reallocate(VM* vm, Compiler* compiler, void* pointer, size_t oldSize, size
 void collectGarbage(VM* vm, Compiler* compiler);
 void markRoots(VM* vm);
 void markCompilerRoots(VM* vm, Compiler* compiler);
-void blackenObject(VM* vm, Obj* object);
 
 #endif //CLOX_MEMORY_H

@@ -127,7 +127,7 @@ ObjUpvalue* newUpvalue(VM* vm, Compiler* compiler, Value* slot) {
     return upvalue;
 }
 
-static void freeObject(VM* vm, Obj* object) {
+void freeObject(VM* vm, Obj* object) {
 #ifdef DEBUG_LOG_GC
     printf("%p free type %d\n", (void*)object, object->type);
 #endif
@@ -196,34 +196,4 @@ void markObject(VM* vm, Obj* object) {
     }
 
     vm->greyStack[vm->greyCount++] = object;
-}
-
-void blackenObject(VM* vm, Obj* object) {
-#ifdef DEBUG_LOG_GC
-    printf("%p blacken", (void*) object);
-    printValue(printf, OBJ_VAL(object));
-    printf("\n");
-#endif
-    switch (object->type) {
-        case OBJ_FUNCTION: {
-            ObjFunction* function = (ObjFunction*) object;
-            markObject(vm, (Obj*) function->name);
-            markValueArray(vm, &function->chunk.constants);
-            break;
-        }
-        case OBJ_CLOSURE: {
-            ObjClosure* closure = (ObjClosure*) object;
-            markObject(vm, (Obj*) closure->function);
-            for (uint32_t i = 0; i < closure->upvalueCount; i++) {
-                markObject(vm, (Obj*) closure->upvalues[i]);
-            }
-            break;
-        }
-        case OBJ_UPVALUE:
-            markValue(vm, ((ObjUpvalue*)object)->closed);
-            break;
-        case OBJ_NATIVE:
-        case OBJ_STRING:
-            break;
-    }
 }

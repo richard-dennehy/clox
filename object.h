@@ -67,6 +67,7 @@ ObjClosure* newClosure(VM* vm, Compiler* compiler, ObjFunction* objFunction);
 ObjNative* newNative(VM* vm, Compiler* compiler, NativeFn function, uint8_t arity);
 void printObject(Printer* print, Value value);
 void freeObjects(VM* vm);
+void freeObject(VM* vm, Obj* object);
 void markObject(VM* vm, Obj* object);
 
 static inline bool isObjType(Value value, ObjType type) {

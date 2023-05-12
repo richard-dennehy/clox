@@ -1,12 +1,13 @@
 #include <stdlib.h>
 #include <assert.h>
 #include <stdio.h>
-#include "memory.h"
 
 #ifdef DEBUG_LOG_GC
-
 #include "debug.h"
 #endif
+
+#include "memory.h"
+#include "object.h"
 
 void initMemory(FreeList* freeList, size_t size) {
     void* allocation = malloc(size);
@@ -28,13 +29,18 @@ void freeMemory(FreeList* freeList) {
 
 // TODO potential improvements: keep list sorted in memory order; merge adjacent free blocks to reduce fragmentation
 void* reallocate(VM* vm, Compiler* compiler, void* pointer, size_t oldSize, size_t newSize) {
+    vm->bytesAllocated += newSize - oldSize;
     uint8_t* result = NULL;
 
-    if (newSize > oldSize) {
 #ifdef DEBUG_STRESS_GC
+    if (newSize > oldSize) {
         collectGarbage(vm, compiler);
-#endif
     }
+#else
+    if (vm->bytesAllocated > vm->nextGC) {
+        collectGarbage(vm, compiler);
+    }
+#endif
 
     if (newSize) {
         // need to always allocate enough space to be able to reuse the space to store block metadata once it's freed
@@ -85,29 +91,88 @@ void* reallocate(VM* vm, Compiler* compiler, void* pointer, size_t oldSize, size
     return (void*) result;
 }
 
+static void blackenObject(VM* vm, Obj* object) {
+#ifdef DEBUG_LOG_GC
+    printf("%p blacken", (void*) object);
+    printValue(printf, OBJ_VAL(object));
+    printf("\n");
+#endif
+    switch (object->type) {
+        case OBJ_FUNCTION: {
+            ObjFunction* function = (ObjFunction*) object;
+            markObject(vm, (Obj*) function->name);
+            markValueArray(vm, &function->chunk.constants);
+            break;
+        }
+        case OBJ_CLOSURE: {
+            ObjClosure* closure = (ObjClosure*) object;
+            markObject(vm, (Obj*) closure->function);
+            for (uint32_t i = 0; i < closure->upvalueCount; i++) {
+                markObject(vm, (Obj*) closure->upvalues[i]);
+            }
+            break;
+        }
+        case OBJ_UPVALUE:
+            markValue(vm, ((ObjUpvalue*) object)->closed);
+            break;
+        case OBJ_NATIVE:
+        case OBJ_STRING:
+            break;
+    }
+}
+
 static void traceReferences(VM* vm) {
     while (vm->greyCount) {
-        Obj* object = vm->greyStack[vm->greyCount--];
+        Obj* object = vm->greyStack[--vm->greyCount];
         blackenObject(vm, object);
+    }
+}
+
+static void sweep(VM* vm) {
+    Obj* previous = NULL;
+    Obj* object = vm->objects;
+
+    while (object) {
+        if (object->isMarked) {
+            object->isMarked = false;
+            previous = object;
+            object = object->next;
+        } else {
+            Obj* unreached = object;
+            object = object->next;
+
+            if (previous) {
+                previous->next = object;
+            } else {
+                vm->objects = object;
+            }
+
+            freeObject(vm, unreached);
+        }
     }
 }
 
 void collectGarbage(VM* vm, Compiler* compiler) {
 #ifdef DEBUG_LOG_GC
     printf("-- gc begin\n");
+    size_t before = vm->bytesAllocated;
 #endif
 
-    if (vm) {
-        markRoots(vm);
+    markRoots(vm);
 
-        if (compiler) {
-            markCompilerRoots(vm, compiler);
-        }
-
-        traceReferences(vm);
+    if (compiler) {
+        markCompilerRoots(vm, compiler);
     }
+
+    traceReferences(vm);
+    tableRemoveWhite(&vm->strings);
+    sweep(vm);
+
+    vm->nextGC = vm->bytesAllocated * GC_HEAP_GROW_FACTOR;
 
 #ifdef DEBUG_LOG_GC
     printf("-- gc end\n");
+    printf("   collected %zu bytes (from %zu to %zu) next at %zu\n",
+           before - vm->bytesAllocated, before, vm->bytesAllocated, vm->nextGC);
 #endif
 }

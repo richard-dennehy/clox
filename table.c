@@ -130,3 +130,12 @@ void markTable(VM* vm, Table* table) {
         markValue(vm, entry->value);
     }
 }
+
+void tableRemoveWhite(Table* table) {
+    for (uint32_t i = 0; i < table->capacity; i++) {
+        Entry* entry = table->entries + i;
+        if (entry->key && !entry->key->obj.isMarked) {
+            tableDelete(table, entry->key);
+        }
+    }
+}
