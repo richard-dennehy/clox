@@ -23,6 +23,9 @@ struct VM {
     ObjUpvalue* openUpvalues;
     Obj* objects;
     Printer* print;
+    uint32_t greyCount;
+    uint32_t greyCapacity;
+    Obj** greyStack;
 };
 
 typedef enum {

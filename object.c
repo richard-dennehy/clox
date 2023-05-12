@@ -1,5 +1,7 @@
 #include <string.h>
 #include <stdio.h>
+#include <malloc.h>
+#include <stdlib.h>
 #include "object.h"
 
 static Obj* allocateObject(VM* vm, Compiler* compiler, size_t size, ObjType type) {
@@ -169,12 +171,59 @@ void freeObjects(VM* vm) {
     }
 }
 
-void markObject(Obj* object) {
+void markObject(VM* vm, Obj* object) {
     if (!object) return;
+    if (object->isMarked) return;
+
 #ifdef DEBUG_LOG_GC
     printf("%p mark ", (void*) object);
     printValue(printf, OBJ_VAL(object));
     printf("\n");
 #endif
     object->isMarked = true;
+
+    if (vm->greyCapacity < vm->greyCount + 1) {
+        vm->greyCapacity = GROW_CAPACITY(vm->greyCapacity);
+        // using system allocator as the custom allocator depends on this
+        Obj** newStack = (Obj**) realloc(vm->greyStack, sizeof(Obj*) * vm->greyCapacity);
+
+        // OOM
+        if (!newStack) {
+            exit(1);
+        } else {
+            vm->greyStack = newStack;
+        }
+    }
+
+    vm->greyStack[vm->greyCount++] = object;
+}
+
+void blackenObject(VM* vm, Obj* object) {
+#ifdef DEBUG_LOG_GC
+    printf("%p blacken", (void*) object);
+    printValue(printf, OBJ_VAL(object));
+    printf("\n");
+#endif
+    switch (object->type) {
+        case OBJ_FUNCTION: {
+            ObjFunction* function = (ObjFunction*) object;
+            markObject(vm, (Obj*) function->name);
+            markValueArray(vm, &function->chunk.constants);
+            break;
+        }
+        case OBJ_CLOSURE: {
+            ObjClosure* closure = (ObjClosure*) object;
+            markObject(vm, (Obj*) closure->function);
+            for (uint32_t i = 0; i < closure->upvalueCount; i++) {
+                markObject(vm, (Obj*) closure->upvalues[i]);
+            }
+            break;
+        }
+        case OBJ_UPVALUE:
+            markValue(vm, ((ObjUpvalue*)object)->closed);
+            break;
+        case OBJ_NATIVE:
+        case OBJ_STRING:
+            break;
+    }
 }

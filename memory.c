@@ -2,7 +2,9 @@
 #include <assert.h>
 #include <stdio.h>
 #include "memory.h"
+
 #ifdef DEBUG_LOG_GC
+
 #include "debug.h"
 #endif
 
@@ -60,7 +62,7 @@ void* reallocate(VM* vm, Compiler* compiler, void* pointer, size_t oldSize, size
     if (pointer && oldSize) {
         if (oldSize < sizeof(Block)) oldSize = sizeof(Block);
         Block* last = vm->freeList->first;
-        while(last->next) {
+        while (last->next) {
             last = last->next;
         }
         if (result) {
@@ -83,6 +85,13 @@ void* reallocate(VM* vm, Compiler* compiler, void* pointer, size_t oldSize, size
     return (void*) result;
 }
 
+static void traceReferences(VM* vm) {
+    while (vm->greyCount) {
+        Obj* object = vm->greyStack[vm->greyCount--];
+        blackenObject(vm, object);
+    }
+}
+
 void collectGarbage(VM* vm, Compiler* compiler) {
 #ifdef DEBUG_LOG_GC
     printf("-- gc begin\n");
@@ -90,9 +99,12 @@ void collectGarbage(VM* vm, Compiler* compiler) {
 
     if (vm) {
         markRoots(vm);
-    }
-    if (compiler) {
-        markCompilerRoots(compiler);
+
+        if (compiler) {
+            markCompilerRoots(vm, compiler);
+        }
+
+        traceReferences(vm);
     }
 
 #ifdef DEBUG_LOG_GC

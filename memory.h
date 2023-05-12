@@ -37,6 +37,7 @@ void freeMemory(FreeList* freeList);
 void* reallocate(VM* vm, Compiler* compiler, void* pointer, size_t oldSize, size_t newSize);
 void collectGarbage(VM* vm, Compiler* compiler);
 void markRoots(VM* vm);
-void markCompilerRoots(Compiler* compiler);
+void markCompilerRoots(VM* vm, Compiler* compiler);
+void blackenObject(VM* vm, Obj* object);
 
 #endif //CLOX_MEMORY_H

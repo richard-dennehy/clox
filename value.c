@@ -57,6 +57,12 @@ bool valuesEqual(Value a, Value b) {
     }
 }
 
-void markValue(Value value) {
-    if (IS_OBJ(value)) markObject(AS_OBJ(value));
+void markValue(VM* vm, Value value) {
+    if (IS_OBJ(value)) markObject(vm, AS_OBJ(value));
+}
+
+void markValueArray(VM* vm, ValueArray* array) {
+    for (uint32_t i = 0; i < array->count; i++) {
+        markValue(vm, array->values[i]);
+    }
 }

@@ -4,6 +4,7 @@
 #include <stdarg.h>
 #include <string.h>
 #include <time.h>
+#include <malloc.h>
 #include "common.h"
 #include "vm.h"
 #include "debug.h"
@@ -70,6 +71,9 @@ void initVM(FreeList* freeList, VM* vm) {
     initTable(&vm->globals);
     initTable(&vm->strings);
     vm->print = printf;
+    vm->greyCount = 0;
+    vm->greyCapacity = 0;
+    vm->greyStack = NULL;
 
     defineNative(vm, "clock", clockNative, 0);
     defineNative(vm, "sqrt", sqrtNative, 1);
@@ -80,6 +84,8 @@ void freeVM(VM* vm) {
     freeTable(vm, &vm->strings);
     freeValueArray(vm, &vm->stack);
     freeObjects(vm);
+    // use system allocator as the custom allocator depends on this
+    free(vm->greyStack);
 }
 
 static bool isFalsey(Value value) {
@@ -444,16 +450,16 @@ Value pop(VM* vm) {
 
 void markRoots(VM* vm) {
     for (uint32_t i = 0; i < vm->stack.count; i++) {
-        markValue(vm->stack.values[i]);
+        markValue(vm, vm->stack.values[i]);
     }
 
     for (uint32_t i = 0; i < vm->frameCount; i++) {
-        markObject((Obj*) vm->frames[i].closure);
+        markObject(vm, (Obj*) vm->frames[i].closure);
     }
 
     for (ObjUpvalue* upvalue = vm->openUpvalues; upvalue; upvalue = upvalue->next) {
-        markObject((Obj*) upvalue);
+        markObject(vm, (Obj*) upvalue);
     }
 
-    markTable(&vm->globals);
+    markTable(vm, &vm->globals);
 }

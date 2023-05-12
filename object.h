@@ -29,7 +29,9 @@ struct ObjString {
 
 struct ObjUpvalue {
     Obj obj;
+    // for open values (i.e. the closed variable is reachable elsewhere)
     Value* location;
+    // for closed upvalues (i.e. the closed variable can't be reached elsewhere and will probably get GC'd)
     Value closed;
     ObjUpvalue* next;
 };
@@ -65,7 +67,7 @@ ObjClosure* newClosure(VM* vm, Compiler* compiler, ObjFunction* objFunction);
 ObjNative* newNative(VM* vm, Compiler* compiler, NativeFn function, uint8_t arity);
 void printObject(Printer* print, Value value);
 void freeObjects(VM* vm);
-void markObject(Obj* object);
+void markObject(VM* vm, Obj* object);
 
 static inline bool isObjType(Value value, ObjType type) {
     return IS_OBJ(value) && AS_OBJ(value)->type == type;
