@@ -93,7 +93,7 @@ void* reallocate(VM* vm, Compiler* compiler, void* pointer, size_t oldSize, size
 
 static void blackenObject(VM* vm, Obj* object) {
 #ifdef DEBUG_LOG_GC
-    printf("%p blacken", (void*) object);
+    printf("%p blacken ", (void*) object);
     printValue(printf, OBJ_VAL(object));
     printf("\n");
 #endif

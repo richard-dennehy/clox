@@ -14,5 +14,6 @@
 
 typedef int (Printer)(const char* format, ...);
 typedef struct VM VM;
+typedef struct Compiler Compiler;
 
 #endif //CLOX_COMMON_H

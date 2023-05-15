@@ -58,14 +58,13 @@ static bool sqrtNative(VM* vm, Value* out, Value* args) {
 static void defineNative(VM* vm, const char* name, NativeFn function, uint8_t arity) {
     push(vm, OBJ_VAL(copyString(vm, NULL, name, strlen(name))));
     push(vm, OBJ_VAL(newNative(vm, NULL, function, arity)));
-    tableSet(vm, &vm->globals, AS_STRING(vm->stack.values[0]), vm->stack.values[1]);
+    tableSet(vm, NULL, &vm->globals, AS_STRING(vm->stack.values[0]), vm->stack.values[1]);
     pop(vm);
     pop(vm);
 }
 
 void initVM(FreeList* freeList, VM* vm) {
     vm->freeList = freeList;
-    initValueArray(&vm->stack);
     resetStack(vm);
     vm->objects = NULL;
     initTable(&vm->globals);
@@ -76,6 +75,7 @@ void initVM(FreeList* freeList, VM* vm) {
     vm->greyStack = NULL;
     vm->bytesAllocated = 0;
     vm->nextGC = 1024 * 1024;
+    initValueArray(vm, NULL, &vm->stack);
 
     defineNative(vm, "clock", clockNative, 0);
     defineNative(vm, "sqrt", sqrtNative, 1);
@@ -141,9 +141,14 @@ static bool callValue(VM* vm, Value callee, uint8_t argumentCount) {
     return false;
 }
 
+static Value peek(VM* vm, uint32_t distance) {
+    return vm->stack.values[vm->stack.count - 1 - distance];
+}
+
 static void concatenate(VM* vm) {
-    ObjString* b = AS_STRING(pop(vm));
-    ObjString* a = AS_STRING(pop(vm));
+    // keep on stack so GC can reach
+    ObjString* b = AS_STRING(peek(vm, 0));
+    ObjString* a = AS_STRING(peek(vm, 1));
 
     uint32_t length = a->length + b->length;
     char* chars = VM_ALLOCATE(char, length + 1);
@@ -152,6 +157,8 @@ static void concatenate(VM* vm) {
     chars[length] = '\0';
 
     ObjString* result = takeString(vm, NULL, chars, length);
+    pop(vm);
+    pop(vm);
     push(vm, OBJ_VAL(result));
 }
 
@@ -195,6 +202,11 @@ uint8_t readByte(CallFrame* frame) {
     return result;
 }
 
+static bool isWide(OpCode op) {
+    return op == OP_GET_GLOBAL_LONG || op == OP_SET_GLOBAL_LONG || op == OP_CONSTANT_LONG ||
+           op == OP_DEFINE_GLOBAL_LONG || op == OP_GET_LOCAL_LONG || op == OP_SET_LOCAL_LONG;
+}
+
 static InterpretResult run(VM* vm) {
     CallFrame* frame = vm->frames + vm->frameCount - 1;
 
@@ -202,7 +214,7 @@ static InterpretResult run(VM* vm) {
 #define READ_BYTE (readByte(frame))
 #define READ_LONG ((READ_BYTE << 16) | (READ_BYTE << 8) | READ_BYTE)
 #define READ_SHORT ((READ_BYTE << 8) | (READ_BYTE))
-#define PEEK(distance) (vm->stack.values[vm->stack.count - 1 - distance])
+#define PEEK(distance) peek(vm, distance)
 #define BINARY_OP(valueType, op) do { \
     if (!IS_NUMBER(PEEK(0)) || !IS_NUMBER(PEEK(1))) { \
         runtimeError(vm, "Operands must be numbers.");\
@@ -210,7 +222,7 @@ static InterpretResult run(VM* vm) {
     }\
     double b = AS_NUMBER(pop(vm));    \
     double a = AS_NUMBER(PEEK(0));    \
-    PEEK(0) = valueType(a op b);\
+    vm->stack.values[vm->stack.count - 1] = valueType(a op b);\
 } while (false)
 #define READ_CONSTANT(index) (frame->closure->function->chunk.constants.values[index])
 
@@ -240,7 +252,7 @@ static InterpretResult run(VM* vm) {
                 } else if (IS_NUMBER(PEEK(0)) && IS_NUMBER(PEEK(1))) {
                     double b = AS_NUMBER(pop(vm));
                     double a = AS_NUMBER(PEEK(0));
-                    PEEK(0) = NUMBER_VAL(a + b);
+                    vm->stack.values[vm->stack.count - 1] = NUMBER_VAL(a + b);
                 } else {
                     runtimeError(vm, "Operands must be two numbers or two strings");
                     return INTERPRET_RUNTIME_ERROR;
@@ -277,7 +289,7 @@ static InterpretResult run(VM* vm) {
             case OP_DEFINE_GLOBAL_LONG: {
                 uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
                 ObjString* name = AS_STRING(READ_CONSTANT(index));
-                tableSet(vm, &vm->globals, name, PEEK(0));
+                tableSet(vm, NULL, &vm->globals, name, PEEK(0));
                 pop(vm);
                 break;
             }
@@ -297,7 +309,7 @@ static InterpretResult run(VM* vm) {
             case OP_SET_GLOBAL_LONG: {
                 uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
                 ObjString* name = AS_STRING(READ_CONSTANT(index));
-                if (tableSet(vm, &vm->globals, name, PEEK(0))) {
+                if (tableSet(vm, NULL, &vm->globals, name, PEEK(0))) {
                     tableDelete(&vm->globals, name);
                     runtimeError(vm, "Undefined variable '%s'", name);
                     return INTERPRET_RUNTIME_ERROR;
@@ -334,7 +346,7 @@ static InterpretResult run(VM* vm) {
             }
             case OP_EQUAL: {
                 Value b = pop(vm);
-                PEEK(0) = BOOL_VAL(valuesEqual(PEEK(0), b));
+                vm->stack.values[vm->stack.count - 1] = BOOL_VAL(valuesEqual(PEEK(0), b));
                 break;
             }
             case OP_GREATER: {
@@ -441,7 +453,7 @@ InterpretResult interpret(VM* vm, const char* source) {
 }
 
 void push(VM* vm, Value value) {
-    writeValue(vm, &vm->stack, value);
+    writeValue(vm, NULL, &vm->stack, value);
 }
 
 Value pop(VM* vm) {

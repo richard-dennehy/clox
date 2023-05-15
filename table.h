@@ -19,9 +19,9 @@ typedef struct {
 void initTable(Table* table);
 void freeTable(VM* vm, Table* table);
 bool tableGet(Table* table, ObjString* key, Value* value);
-bool tableSet(VM* vm, Table* table, ObjString* key, Value value);
+bool tableSet(VM* vm, Compiler* compiler, Table* table, ObjString* key, Value value);
 bool tableDelete(Table* table, ObjString* key);
-void tableAddAll(VM* vm, Table* from, Table* to);
+void tableAddAll(VM* vm, Compiler* compiler, Table* from, Table* to);
 ObjString* tableFindString(Table* table, const char* chars, uint32_t length, uint32_t hash);
 void markTable(VM* vm, Table* table);
 void tableRemoveWhite(Table* table);

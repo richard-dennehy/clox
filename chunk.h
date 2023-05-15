@@ -59,17 +59,12 @@ typedef struct {
     ValueArray constants;
 } Chunk;
 
-void initChunk(Chunk* chunk);
+void initChunk(VM* vm, Compiler* compiler, Chunk* chunk);
 
 void freeChunk(VM* vm, Chunk* chunk);
 
-void writeChunk(VM* vm, Chunk* chunk, uint8_t byte, uint32_t line);
+void writeChunk(VM* vm, Compiler* compiler, Chunk* chunk, uint8_t byte, uint32_t line);
 
 uint32_t getLine(Chunk* chunk, uint32_t instructionIndex);
-
-static inline bool isWide(OpCode op) {
-    return op == OP_GET_GLOBAL_LONG || op == OP_SET_GLOBAL_LONG || op == OP_CONSTANT_LONG ||
-           op == OP_DEFINE_GLOBAL_LONG || op == OP_GET_LOCAL_LONG || op == OP_SET_LOCAL_LONG;
-}
 
 #endif //CLOX_CHUNK_H

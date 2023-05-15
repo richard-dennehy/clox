@@ -24,7 +24,10 @@ static ObjString* allocateString(VM* vm, Compiler* compiler, char* chars, uint32
     string->length = length;
     string->chars = chars;
     string->hash = hash;
-    tableSet(vm, &vm->strings, string, NIL_VAL);
+    // make new string visible to GC
+    writeValue(vm, compiler, &vm->stack, OBJ_VAL(string));
+    tableSet(vm, compiler, &vm->strings, string, NIL_VAL);
+    pop(vm);
     return string;
 }
 
@@ -54,7 +57,10 @@ ObjFunction* newFunction(VM* vm, Compiler* compiler) {
     function->arity = 0;
     function->upvalueCount = 0;
     function->name = NULL;
-    initChunk(&function->chunk);
+    // GC shenanigans
+    writeValue(vm, compiler, &vm->stack, OBJ_VAL(function));
+    initChunk(vm, compiler, &function->chunk);
+    pop(vm);
 
     return function;
 }

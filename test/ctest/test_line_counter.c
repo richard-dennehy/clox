@@ -1,4 +1,5 @@
 #include "chunk.h"
+#include "compiler.c"
 #include "test_suite.h"
 
 int testLineCounter(void) {
@@ -7,14 +8,14 @@ int testLineCounter(void) {
     initMemory(&freeList, 256 * 1024);
     VM vm = {.freeList = &freeList};
     Chunk chunk;
-    initChunk(&chunk);
+    initChunk(&vm, NULL, &chunk);
 
     for (int i = 0; i < 5; i++) {
-        writeChunk(&vm, &chunk, OP_RETURN, 10);
+        writeChunk(&vm, NULL, &chunk, OP_RETURN, 10);
     }
-    writeChunk(&vm, &chunk, OP_RETURN, 11);
+    writeChunk(&vm, NULL, &chunk, OP_RETURN, 11);
     for (int i = 0; i < 100; i++) {
-        writeChunk(&vm, &chunk, OP_RETURN, 99);
+        writeChunk(&vm, NULL, &chunk, OP_RETURN, 99);
     }
 
     checkIntsEqual(chunk.count, 106);

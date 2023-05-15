@@ -15,11 +15,11 @@ int fakePrintf(const char* format, ...) {
     return result;
 }
 
-void resetPrintLog() {
+void resetPrintLog(void) {
     printed = 0;
 }
 
-int testVmStack() {
+int testVmStack(void) {
     int err_code = TEST_SUCCEEDED;
 
     FreeList freeList;
@@ -49,7 +49,7 @@ int testVmStack() {
     return err_code;
 }
 
-int testVmArithmetic() {
+int testVmArithmetic(void) {
     int err_code = TEST_SUCCEEDED;
 
     FreeList freeList;
@@ -82,7 +82,7 @@ int testVmArithmetic() {
     return err_code;
 }
 
-int testNil() {
+int testNil(void) {
     int err_code = TEST_SUCCEEDED;
 
     FreeList freeList;
@@ -113,7 +113,7 @@ int testNil() {
     return err_code;
 }
 
-int testBools() {
+int testBools(void) {
     int err_code = TEST_SUCCEEDED;
 
     FreeList freeList;
@@ -156,7 +156,7 @@ int testBools() {
     return err_code;
 }
 
-int testComparisons() {
+int testComparisons(void) {
 #define RUN_TEST(source, expected) do { \
     int prevPrinted = printed;                                    \
     INTERPRET("print " source);  \
@@ -197,7 +197,7 @@ int testComparisons() {
 #undef RUN_TEST
 }
 
-int testStrings() {
+int testStrings(void) {
     int err_code = TEST_SUCCEEDED;
 
     FreeList freeList;
@@ -236,7 +236,7 @@ int testStrings() {
     return err_code;
 }
 
-int testGlobals() {
+int testGlobals(void) {
     int err_code = TEST_SUCCEEDED;
 
     FreeList freeList;
@@ -247,8 +247,8 @@ int testGlobals() {
     vm.print = fakePrintf;
 
     Value global;
-    ObjString* key = copyString(&vm, NULL, "uninitialisedGlobal", strlen("uninitialisedGlobal"));
     INTERPRET("var uninitialisedGlobal;");
+    ObjString* key = copyString(&vm, NULL, "uninitialisedGlobal", strlen("uninitialisedGlobal"));
     checkTrue(tableGet(&vm.globals, key, &global));
     checkIntsEqual(global.type, VAL_NIL);
 
@@ -257,8 +257,8 @@ int testGlobals() {
     checkIntsEqual(global.type, VAL_NUMBER);
     checkIntsEqual(AS_NUMBER(global), 5);
 
-    key = copyString(&vm, NULL, "initialisedGlobal", strlen("initialisedGlobal"));
     INTERPRET("var initialisedGlobal = false;");
+    key = copyString(&vm, NULL, "initialisedGlobal", strlen("initialisedGlobal"));
     checkTrue(tableGet(&vm.globals, key, &global));
     checkIntsEqual(global.type, VAL_BOOL);
     checkIntsEqual(AS_BOOL(global), false);
@@ -299,7 +299,7 @@ int testGlobals() {
     return err_code;
 }
 
-int testLocals() {
+int testLocals(void) {
     int err_code = TEST_SUCCEEDED;
     FreeList freeList;
     VM vm;
@@ -357,7 +357,7 @@ int testLocals() {
     return err_code;
 }
 
-int testControlFlow() {
+int testControlFlow(void) {
     int err_code = TEST_SUCCEEDED;
     FreeList freeList;
     VM vm;
@@ -422,7 +422,7 @@ int testControlFlow() {
     return err_code;
 }
 
-int testFunctions() {
+int testFunctions(void) {
     int err_code = TEST_SUCCEEDED;
     FreeList freeList;
     VM vm;
@@ -493,7 +493,7 @@ int testFunctions() {
     return err_code;
 }
 
-int testClosures() {
+int testClosures(void) {
     int err_code = TEST_SUCCEEDED;
     FreeList freeList;
     VM vm;
@@ -590,7 +590,7 @@ int testClosures() {
     return err_code;
 }
 
-int main() {
+int main(void) {
     return testGlobals() | testLocals() | testControlFlow() | testVmStack() | testVmArithmetic() | testNil() |
            testBools() | testComparisons() | testStrings() | testFunctions() | testClosures();
 }

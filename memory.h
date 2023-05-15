@@ -20,6 +20,9 @@
 // note that the compiler(s) are unreachable once compilation is done, so it's fine to implicitly GC any leftover objects from the compilation phase
 #define COMPILER_ALLOCATE(type, count) \
     (type*) reallocate(vm, compiler, NULL, 0, sizeof(type) * count)
+#define COMPILER_GROW_ARRAY(type, pointer, oldCount, newCount) \
+    (type*) reallocate(vm, compiler, pointer, sizeof(type) * (oldCount), \
+        sizeof(type) * (newCount))
 
 typedef struct Block {
     struct Block* next;
@@ -30,8 +33,6 @@ struct FreeList {
     Block* first;
     void* base_;
 };
-
-typedef struct Compiler Compiler;
 
 void initMemory(FreeList* freeList, size_t size);
 void freeMemory(FreeList* freeList);

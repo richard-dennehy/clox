@@ -3,25 +3,29 @@
 #include "value.h"
 #include "object.h"
 
-void initValueArray(ValueArray* array) {
-    array->values = NULL;
-    array->capacity = 0;
+void initValueArray(VM* vm, Compiler* compiler, ValueArray* array) {
+    array->capacity = GROW_CAPACITY(array->capacity);
+    array->values = COMPILER_GROW_ARRAY(Value, array->values, 0, array->capacity);
     array->count = 0;
 }
 
-void writeValue(VM* vm, ValueArray* array, Value value) {
-    if (array->capacity < array->count + 1) {
+void writeValue(VM* vm, Compiler* compiler, ValueArray* array, Value value) {
+    assert(array->capacity != 0);
+    array->values[array->count++] = value;
+
+    // need to write to array then grow after, otherwise a GC can be triggered while writing temp values to the stack
+    if (array->capacity == array->count) {
         uint32_t oldCapacity = array->capacity;
         array->capacity = GROW_CAPACITY(array->capacity);
-        array->values = VM_GROW_ARRAY(Value, array->values, oldCapacity, array->capacity);
+        array->values = COMPILER_GROW_ARRAY(Value, array->values, oldCapacity, array->capacity);
     }
-
-    array->values[array->count++] = value;
 }
 
 void freeValueArray(VM* vm, ValueArray* array) {
     VM_FREE_ARRAY(Value, array->values, array->capacity);
-    initValueArray(array);
+    array->count = 0;
+    array->capacity = 0;
+    array->values = NULL;
 }
 
 void printValue(Printer* print, Value value) {

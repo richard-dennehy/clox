@@ -57,11 +57,11 @@ static void initLocalArray(LocalArray* array) {
     array->count = 0;
 }
 
-static void writeLocal(VM* vm, LocalArray* array, Local local) {
+static void writeLocal(VM* vm, Compiler* compiler, LocalArray* array, Local local) {
     if (array->capacity < array->count + 1) {
         uint32_t oldCapacity = array->capacity;
         array->capacity = GROW_CAPACITY(array->capacity);
-        array->locals = VM_GROW_ARRAY(Local, array->locals, oldCapacity, array->capacity);
+        array->locals = COMPILER_GROW_ARRAY(Local, array->locals, oldCapacity, array->capacity);
     }
 
     array->locals[array->count++] = local;
@@ -77,6 +77,7 @@ struct Compiler {
     ObjFunction* function;
     FunctionType type;
 
+    // FIXME this leaks memory - need to delete this at the end of each compile
     LocalArray localArray;
     Upvalue upvalues[UINT8_COUNT];
     uint32_t scopeDepth;
@@ -120,7 +121,7 @@ static Chunk* currentChunk(Parser* parser) {
 }
 
 static void emitByte(Parser* parser, uint8_t byte) {
-    writeChunk(parser->vm, currentChunk(parser), byte, parser->previous.line);
+    writeChunk(parser->vm, parser->compiler, currentChunk(parser), byte, parser->previous.line);
 }
 
 static void emitBytes(Parser* parser, uint8_t byte1, uint8_t byte2) {
@@ -144,7 +145,7 @@ static void emitVariableWidth(Parser* parser, uint8_t byteOp, uint8_t longOp, ui
 }
 
 static uint32_t makeConstant(Parser* parser, Value value) {
-    writeValue(parser->vm, &currentChunk(parser)->constants, value);
+    writeValue(parser->vm, parser->compiler, &currentChunk(parser)->constants, value);
     uint32_t index = currentChunk(parser)->constants.count - 1;
     assert(index < 1 << 24 || !"Way too many constants");
     return index;
@@ -238,7 +239,7 @@ static void addLocal(Parser* parser, Token name) {
             .depth = -1,
             .isCaptured = false,
     };
-    writeLocal(parser->vm, &compiler->localArray, local);
+    writeLocal(parser->vm, compiler, &compiler->localArray, local);
 }
 
 static bool identifiersEqual(Token* a, Token* b) {
@@ -829,7 +830,7 @@ static void initCompiler(Parser* parser, Compiler* compiler, FunctionType type) 
             },
             .isCaptured = false,
     };
-    writeLocal(parser->vm, &compiler->localArray, local);
+    writeLocal(parser->vm, compiler, &compiler->localArray, local);
 }
 
 ObjFunction* compile(VM* vm, const char* source) {
