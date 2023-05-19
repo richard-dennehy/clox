@@ -151,6 +151,10 @@ uint32_t disassembleInstruction(Chunk* chunk, uint32_t offset) {
             return simpleInstruction("OP_CLOSE_UPVALUE", offset);
         case OP_CLASS:
             return constantInstruction("OP_CLASS", chunk, offset);
+        case OP_GET_PROPERTY:
+            return constantInstruction("OP_GET_PROPERTY", chunk, offset);
+        case OP_SET_PROPERTY:
+            return constantInstruction("OP_SET_PROPERTY", chunk, offset);
         default:
             printf("Unknown opcode %d\n", instruction);
             return offset + 1;

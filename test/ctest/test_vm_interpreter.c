@@ -613,6 +613,18 @@ int testClasses(void) {
     checkIntsEqual(printed, 2);
     checkStringsEqual(printLog[1], "Brioche instance");
 
+    const char* getSetProperties =
+            "class Pair {}\n"
+            "\n"
+            "var pair = Pair();\n"
+            "pair.first = 1;\n"
+            "pair.second = 2;\n"
+            "print pair.first + pair.second;";
+
+    INTERPRET(getSetProperties);
+    checkIntsEqual(printed, 3);
+    checkStringsEqual(printLog[2], "3");
+
     freeVM(&vm);
     freeMemory(&freeList);
     return err_code;

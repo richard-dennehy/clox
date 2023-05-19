@@ -230,6 +230,7 @@ static InterpretResult run(VM* vm) {
     vm->stack.values[vm->stack.count - 1] = valueType(a op b);\
 } while (false)
 #define READ_CONSTANT(index) (frame->closure->function->chunk.constants.values[index])
+#define READ_STRING(index) AS_STRING(READ_CONSTANT(index))
 
     while (frame->ip < frame->closure->function->chunk.code + frame->closure->function->chunk.count) {
 #ifdef DEBUG_TRACE_EXECUTION
@@ -293,7 +294,7 @@ static InterpretResult run(VM* vm) {
             case OP_DEFINE_GLOBAL:
             case OP_DEFINE_GLOBAL_LONG: {
                 uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
-                ObjString* name = AS_STRING(READ_CONSTANT(index));
+                ObjString* name = READ_STRING(index);
                 tableSet(vm, NULL, &vm->globals, name, PEEK(0));
                 pop(vm);
                 break;
@@ -301,7 +302,7 @@ static InterpretResult run(VM* vm) {
             case OP_GET_GLOBAL:
             case OP_GET_GLOBAL_LONG: {
                 uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
-                ObjString* name = AS_STRING(READ_CONSTANT(index));
+                ObjString* name = READ_STRING(index);
                 Value value;
                 if (!tableGet(&vm->globals, name, &value)) {
                     runtimeError(vm, "Undefined variable '%s'.", name->chars);
@@ -313,7 +314,7 @@ static InterpretResult run(VM* vm) {
             case OP_SET_GLOBAL:
             case OP_SET_GLOBAL_LONG: {
                 uint32_t index = isWide(instruction) ? READ_LONG : READ_BYTE;
-                ObjString* name = AS_STRING(READ_CONSTANT(index));
+                ObjString* name = READ_STRING(index);
                 if (tableSet(vm, NULL, &vm->globals, name, PEEK(0))) {
                     tableDelete(&vm->globals, name);
                     runtimeError(vm, "Undefined variable '%s'", name);
@@ -386,7 +387,7 @@ static InterpretResult run(VM* vm) {
                 break;
             }
             case OP_CLASS: {
-                push(vm, OBJ_VAL(newClass(vm, NULL, AS_STRING(READ_CONSTANT(READ_BYTE)))));
+                push(vm, OBJ_VAL(newClass(vm, NULL, READ_STRING(READ_BYTE))));
                 break;
             }
             case OP_CLOSURE: {
@@ -421,6 +422,38 @@ static InterpretResult run(VM* vm) {
             case OP_CLOSE_UPVALUE: {
                 closeUpvalues(vm, vm->stack.values + vm->stack.count - 1);
                 pop(vm);
+                break;
+            }
+            case OP_GET_PROPERTY: {
+                if (!IS_INSTANCE(peek(vm, 0))) {
+                    runtimeError(vm, "Only instances have properties.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                ObjInstance* instance = AS_INSTANCE(peek(vm, 0));
+                ObjString* name = READ_STRING(READ_BYTE);
+
+                Value value;
+                if (tableGet(&instance->fields, name, &value)) {
+                    pop(vm); // instance
+                    push(vm, value);
+                    break;
+                }
+
+                runtimeError(vm, "Undefined property '%s'.", name->chars);
+                return INTERPRET_RUNTIME_ERROR;
+            }
+            case OP_SET_PROPERTY: {
+                if (!IS_INSTANCE(peek(vm, 1))) {
+                    runtimeError(vm, "Only instances have fields.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+
+                ObjInstance* instance = AS_INSTANCE(peek(vm, 1));
+                tableSet(vm, NULL, &instance->fields, READ_STRING(READ_BYTE), peek(vm, 0));
+                Value value = pop(vm);
+                pop(vm); // instance
+                push(vm, value);
                 break;
             }
             case OP_RETURN: {
