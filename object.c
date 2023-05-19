@@ -1,6 +1,5 @@
 #include <string.h>
 #include <stdio.h>
-#include <malloc.h>
 #include <stdlib.h>
 #include <assert.h>
 #include "object.h"
@@ -66,6 +65,19 @@ ObjFunction* newFunction(VM* vm, Compiler* compiler) {
     return function;
 }
 
+ObjClass* newClass(VM* vm, Compiler* compiler, ObjString* name) {
+    ObjClass* class = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);
+    class->name = name;
+    return class;
+}
+
+ObjInstance* newInstance(VM* vm, Compiler* compiler, ObjClass* class) {
+    ObjInstance* instance = ALLOCATE_OBJ(ObjInstance, OBJ_INSTANCE);
+    instance->class = class;
+    initTable(&instance->fields);
+    return instance;
+}
+
 ObjClosure* newClosure(VM* vm, Compiler* compiler, ObjFunction* function) {
     ObjUpvalue** upvalues = COMPILER_ALLOCATE(ObjUpvalue*, function->upvalueCount);
 
@@ -97,6 +109,10 @@ static void printFunction(Printer* print, ObjFunction* function) {
 
 void printObject(Printer* print, Value value) {
     switch (OBJ_TYPE(value)) {
+        case OBJ_CLASS: {
+            print("%s", AS_CLASS(value)->name->chars);
+            break;
+        }
         case OBJ_CLOSURE: {
             printFunction(print, AS_CLOSURE(value)->function);
             break;
@@ -104,6 +120,10 @@ void printObject(Printer* print, Value value) {
         case OBJ_FUNCTION:
             printFunction(print, AS_FUNCTION(value));
             break;
+        case OBJ_INSTANCE: {
+            print("%s instance", AS_INSTANCE(value)->class->name->chars);
+            break;
+        }
         case OBJ_NATIVE:
             print("<native fn>");
             break;
@@ -145,6 +165,10 @@ void freeObject(VM* vm, Obj* object) {
     object->type = OBJ_NONE;
 
     switch(type) {
+        case OBJ_CLASS: {
+            VM_FREE(ObjClass, object);
+            break;
+        }
         case OBJ_CLOSURE: {
             ObjClosure* closure = (ObjClosure*) object;
             VM_FREE_ARRAY(ObjUpvalue*, closure->upvalues, closure->upvalueCount);
@@ -155,6 +179,12 @@ void freeObject(VM* vm, Obj* object) {
             ObjFunction* function = (ObjFunction*) object;
             freeChunk(vm, &function->chunk);
             VM_FREE(ObjFunction, object);
+            break;
+        }
+        case OBJ_INSTANCE: {
+            ObjInstance* instance = (ObjInstance*) object;
+            freeTable(vm, &instance->fields);
+            VM_FREE(ObjInstance, object);
             break;
         }
         case OBJ_NATIVE: {

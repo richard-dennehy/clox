@@ -77,7 +77,6 @@ struct Compiler {
     ObjFunction* function;
     FunctionType type;
 
-    // FIXME this leaks memory - need to delete this at the end of each compile
     LocalArray localArray;
     Upvalue upvalues[UINT8_COUNT];
     uint32_t scopeDepth;
@@ -271,6 +270,7 @@ static void markInitialised(Parser* parser) {
     compiler->localArray.locals[compiler->localArray.count - 1].depth = (int32_t) compiler->scopeDepth;
 }
 
+// separate declaration/definition to prevent e.g. referring to a variable in its own initialiser i.e. `var a = a`
 static void defineVariable(Parser* parser, uint32_t global) {
     if (parser->compiler->scopeDepth > 0) {
         markInitialised(parser);
@@ -354,6 +354,18 @@ static void funDeclaration(Parser* parser) {
     defineVariable(parser, global);
 }
 
+static void classDeclaration(Parser* parser) {
+    consume(parser, TOKEN_IDENTIFIER, "Expect class name.");
+    uint8_t nameConstant = identifierConstant(parser, &parser->previous);
+    declareVariable(parser);
+
+    emitBytes(parser, OP_CLASS, nameConstant);
+    defineVariable(parser, nameConstant);
+
+    consume(parser, TOKEN_LEFT_BRACE, "Expected '{' before class body.");
+    consume(parser, TOKEN_RIGHT_BRACE, "Expected '}' before class body.");
+}
+
 static void synchronise(Parser* parser) {
     parser->panicMode = false;
 
@@ -378,7 +390,9 @@ static void synchronise(Parser* parser) {
 }
 
 static void declaration(Parser* parser) {
-    if (match(parser, TOKEN_VAR)) {
+    if (match(parser, TOKEN_CLASS)) {
+        classDeclaration(parser);
+    } else if (match(parser, TOKEN_VAR)) {
         varDeclaration(parser);
     } else if (match(parser, TOKEN_FUN)) {
         funDeclaration(parser);

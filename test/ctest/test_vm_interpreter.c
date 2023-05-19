@@ -590,7 +590,35 @@ int testClosures(void) {
     return err_code;
 }
 
+int testClasses(void) {
+    int err_code = TEST_SUCCEEDED;
+    FreeList freeList;
+    VM vm;
+    initMemory(&freeList, 256 * 1024);
+    initVM(&freeList, &vm);
+    resetPrintLog();
+    vm.print = fakePrintf;
+
+    const char* emptyClass =
+            "class Brioche {}"
+            "print Brioche;";
+    INTERPRET(emptyClass);
+    checkIntsEqual(printed, 1);
+    checkStringsEqual(printLog[0], "Brioche");
+
+    const char* invokeConstructor =
+            "class Brioche {}"
+            "print Brioche();";
+    INTERPRET(invokeConstructor);
+    checkIntsEqual(printed, 2);
+    checkStringsEqual(printLog[1], "Brioche instance");
+
+    freeVM(&vm);
+    freeMemory(&freeList);
+    return err_code;
+}
+
 int main(void) {
     return testGlobals() | testLocals() | testControlFlow() | testVmStack() | testVmArithmetic() | testNil() |
-           testBools() | testComparisons() | testStrings() | testFunctions() | testClosures();
+           testBools() | testComparisons() | testStrings() | testFunctions() | testClosures() | testClasses();
 }

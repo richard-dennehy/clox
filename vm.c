@@ -117,6 +117,11 @@ static bool callValue(VM* vm, Value callee, uint8_t argumentCount) {
         switch (OBJ_TYPE(callee)) {
             case OBJ_CLOSURE:
                 return call(vm, AS_CLOSURE(callee), argumentCount);
+            case OBJ_CLASS: {
+                ObjClass* class = AS_CLASS(callee);
+                vm->stack.values[vm->stack.count - argumentCount - 1] = OBJ_VAL(newInstance(vm, NULL, class));
+                return true;
+            }
             case OBJ_NATIVE: {
                 ObjNative* native = AS_NATIVE(callee);
                 if (argumentCount != native->arity) {
@@ -237,7 +242,7 @@ static InterpretResult run(VM* vm) {
         printf("\n");
         disassembleInstruction(&frame->closure->function->chunk, (uint32_t) (frame->ip - frame->closure->function->chunk.code));
 #endif
-        uint8_t instruction;
+        OpCode instruction;
         switch (instruction = READ_BYTE) {
             case OP_PRINT:
                 printValue(vm->print, pop(vm));
@@ -378,6 +383,10 @@ static InterpretResult run(VM* vm) {
                     return INTERPRET_RUNTIME_ERROR;
                 }
                 frame = vm->frames + vm->frameCount - 1;
+                break;
+            }
+            case OP_CLASS: {
+                push(vm, OBJ_VAL(newClass(vm, NULL, AS_STRING(READ_CONSTANT(READ_BYTE)))));
                 break;
             }
             case OP_CLOSURE: {

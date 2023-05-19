@@ -98,6 +98,11 @@ static void blackenObject(VM* vm, Obj* object) {
     printf("\n");
 #endif
     switch (object->type) {
+        case OBJ_CLASS: {
+            ObjClass* class = (ObjClass*) object;
+            markObject(vm, (Obj*) class->name);
+            break;
+        }
         case OBJ_FUNCTION: {
             ObjFunction* function = (ObjFunction*) object;
             markObject(vm, (Obj*) function->name);
@@ -110,6 +115,12 @@ static void blackenObject(VM* vm, Obj* object) {
             for (uint32_t i = 0; i < closure->upvalueCount; i++) {
                 markObject(vm, (Obj*) closure->upvalues[i]);
             }
+            break;
+        }
+        case OBJ_INSTANCE: {
+            ObjInstance* instance = (ObjInstance*) object;
+            markObject(vm, (Obj*) instance->class);
+            markTable(vm, &instance->fields);
             break;
         }
         case OBJ_UPVALUE:

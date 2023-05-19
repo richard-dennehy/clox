@@ -8,8 +8,10 @@
 
 typedef enum {
     OBJ_NONE,
+    OBJ_CLASS,
     OBJ_CLOSURE,
     OBJ_FUNCTION,
+    OBJ_INSTANCE,
     OBJ_NATIVE,
     OBJ_STRING,
     OBJ_UPVALUE,
@@ -60,11 +62,24 @@ struct ObjNative {
     uint8_t arity;
 };
 
+struct ObjClass {
+    Obj obj;
+    ObjString* name;
+};
+
+struct ObjInstance {
+    Obj obj;
+    ObjClass* class;
+    Table fields;
+};
+
 ObjString* copyString(VM* vm, Compiler* compiler, const char* chars, uint32_t length);
 ObjString* takeString(VM* vm, Compiler* compiler, char* chars, uint32_t length);
 ObjUpvalue* newUpvalue(VM* vm, Compiler* compiler, Value* slot);
 ObjFunction* newFunction(VM* vm, Compiler* compiler);
+ObjClass* newClass(VM* vm, Compiler* compiler, ObjString* name);
 ObjClosure* newClosure(VM* vm, Compiler* compiler, ObjFunction* objFunction);
+ObjInstance* newInstance(VM* vm, Compiler* compiler, ObjClass* class);
 ObjNative* newNative(VM* vm, Compiler* compiler, NativeFn function, uint8_t arity);
 void printObject(Printer* print, Value value);
 void freeObjects(VM* vm);
@@ -81,11 +96,15 @@ static inline bool isObjType(Value value, ObjType type) {
 #define AS_STRING(value) ((ObjString*) AS_OBJ(value))
 #define AS_CSTRING(value) (AS_STRING(value)->chars)
 
+#define IS_CLASS(value) isObjType(value, OBJ_CLASS)
 #define IS_CLOSURE(value) isObjType(value, OBJ_CLOSURE)
 #define IS_FUNCTION(value) isObjType(value, OBJ_FUNCTION)
+#define IS_INSTANCE(value) isObjType(value, OBJ_INSTANCE)
 #define IS_NATIVE(value) isObjType(value, OBJ_NATIVE)
+#define AS_CLASS(value) ((ObjClass*) AS_OBJ(value))
 #define AS_CLOSURE(value) ((ObjClosure*) AS_OBJ(value))
 #define AS_FUNCTION(value) ((ObjFunction*) AS_OBJ(value))
+#define AS_INSTANCE(value) ((ObjInstance*) AS_OBJ(value))
 #define AS_NATIVE(value) (((ObjNative*) AS_OBJ(value)))
 
 #endif //CLOX_OBJECT_H

@@ -43,6 +43,7 @@ typedef enum {
     OP_GET_UPVALUE_LONG,
     OP_SET_UPVALUE_LONG,
     OP_CLOSE_UPVALUE,
+    OP_CLASS,
 } OpCode;
 
 typedef struct Line {
