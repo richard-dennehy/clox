@@ -4,9 +4,9 @@
 #include "object.h"
 
 void initValueArray(VM* vm, Compiler* compiler, ValueArray* array) {
-    array->capacity = GROW_CAPACITY(array->capacity);
-    array->values = COMPILER_GROW_ARRAY(Value, array->values, 0, array->capacity);
     array->count = 0;
+    array->capacity = GROW_CAPACITY(0);
+    array->values = COMPILER_GROW_ARRAY(Value, array->values, 0, array->capacity);
 }
 
 void writeValue(VM* vm, Compiler* compiler, ValueArray* array, Value value) {

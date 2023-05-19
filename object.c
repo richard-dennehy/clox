@@ -2,6 +2,7 @@
 #include <stdio.h>
 #include <malloc.h>
 #include <stdlib.h>
+#include <assert.h>
 #include "object.h"
 
 static Obj* allocateObject(VM* vm, Compiler* compiler, size_t size, ObjType type) {
@@ -112,6 +113,8 @@ void printObject(Printer* print, Value value) {
         case OBJ_UPVALUE:
             print("upvalue");
             break;
+        case OBJ_NONE:
+            assert(!"Use after free");
     }
 }
 
@@ -138,7 +141,10 @@ void freeObject(VM* vm, Obj* object) {
     printf("%p free type %d\n", (void*)object, object->type);
 #endif
 
-    switch(object->type) {
+    ObjType type = object->type;
+    object->type = OBJ_NONE;
+
+    switch(type) {
         case OBJ_CLOSURE: {
             ObjClosure* closure = (ObjClosure*) object;
             VM_FREE_ARRAY(ObjUpvalue*, closure->upvalues, closure->upvalueCount);
@@ -164,6 +170,9 @@ void freeObject(VM* vm, Obj* object) {
         case OBJ_UPVALUE: {
             VM_FREE(ObjUpvalue, object);
             break;
+        }
+        case OBJ_NONE: {
+            assert(!"Double free");
         }
     }
 }

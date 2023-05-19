@@ -7,6 +7,7 @@
 #include "vm.h"
 
 typedef enum {
+    OBJ_NONE,
     OBJ_CLOSURE,
     OBJ_FUNCTION,
     OBJ_NATIVE,

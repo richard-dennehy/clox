@@ -118,6 +118,8 @@ static void blackenObject(VM* vm, Obj* object) {
         case OBJ_NATIVE:
         case OBJ_STRING:
             break;
+        case OBJ_NONE:
+            assert(!"Use after free");
     }
 }
 
