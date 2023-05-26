@@ -5,12 +5,17 @@
 #include "scanner.h"
 #include "vm.h"
 
+typedef struct ClassCompiler {
+    struct ClassCompiler* enclosing;
+} ClassCompiler;
+
 typedef struct {
     Token current;
     Token previous;
     Scanner* scanner;
     VM* vm;
     Compiler* compiler;
+    ClassCompiler* currentClass;
     bool hadError;
     bool panicMode;
 } Parser;

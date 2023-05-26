@@ -115,13 +115,18 @@ static bool call(VM* vm, ObjClosure* closure, uint8_t argumentCount) {
 static bool callValue(VM* vm, Value callee, uint8_t argumentCount) {
     if (IS_OBJ(callee)) {
         switch (OBJ_TYPE(callee)) {
-            case OBJ_CLOSURE:
-                return call(vm, AS_CLOSURE(callee), argumentCount);
+            case OBJ_BOUND_METHOD: {
+                ObjBoundMethod* bound = AS_BOUND_METHOD(callee);
+                vm->stack.values[vm->stack.count - argumentCount - 1] = bound->receiver;
+                return call(vm, bound->method, argumentCount);
+            }
             case OBJ_CLASS: {
                 ObjClass* class = AS_CLASS(callee);
                 vm->stack.values[vm->stack.count - argumentCount - 1] = OBJ_VAL(newInstance(vm, NULL, class));
                 return true;
             }
+            case OBJ_CLOSURE:
+                return call(vm, AS_CLOSURE(callee), argumentCount);
             case OBJ_NATIVE: {
                 ObjNative* native = AS_NATIVE(callee);
                 if (argumentCount != native->arity) {
@@ -199,6 +204,27 @@ static void closeUpvalues(VM* vm, Value* last) {
         upvalue->location = &upvalue->closed;
         vm->openUpvalues = upvalue->next;
     }
+}
+
+static void defineMethod(VM* vm, ObjString* name) {
+    Value method = peek(vm, 0);
+    ObjClass* class = AS_CLASS(peek(vm, 1));
+    tableSet(vm, NULL, &class->methods, name, method);
+    pop(vm);
+}
+
+static bool bindMethod(VM* vm, ObjClass* class, ObjString* name) {
+    Value method;
+    if (!tableGet(&class->methods, name, &method)) {
+        // TODO this is a bit harsh in a dynamic language - maybe print warning and return nil instead
+        runtimeError(vm, "Undefined property '%s'.", name->chars);
+        return false;
+    }
+
+    ObjBoundMethod* bound = newBoundMethod(vm, NULL, peek(vm, 0), AS_CLOSURE(method));
+    pop(vm); // instance
+    push(vm, OBJ_VAL(bound));
+    return true;
 }
 
 uint8_t readByte(CallFrame* frame) {
@@ -440,8 +466,10 @@ static InterpretResult run(VM* vm) {
                     break;
                 }
 
-                runtimeError(vm, "Undefined property '%s'.", name->chars);
-                return INTERPRET_RUNTIME_ERROR;
+                if (!bindMethod(vm, instance->class, name)) {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
             }
             case OP_SET_PROPERTY: {
                 if (!IS_INSTANCE(peek(vm, 1))) {
@@ -454,6 +482,10 @@ static InterpretResult run(VM* vm) {
                 Value value = pop(vm);
                 pop(vm); // instance
                 push(vm, value);
+                break;
+            }
+            case OP_METHOD: {
+                defineMethod(vm, READ_STRING(READ_BYTE));
                 break;
             }
             case OP_RETURN: {

@@ -42,6 +42,7 @@ typedef struct {
 
 typedef enum {
     TYPE_FUNCTION,
+    TYPE_METHOD,
     TYPE_SCRIPT,
 } FunctionType;
 
@@ -160,6 +161,8 @@ static ParseRule* getRule(TokenType type);
 static void statement(Parser* parser);
 
 static void declaration(Parser* parser);
+
+static void namedVariable(Parser* parser, Token name, bool canAssign);
 
 static void initCompiler(Parser* parser, Compiler* compiler, FunctionType type);
 
@@ -354,16 +357,37 @@ static void funDeclaration(Parser* parser) {
     defineVariable(parser, global);
 }
 
+static void method(Parser* parser) {
+    consume(parser, TOKEN_IDENTIFIER, "Expect method name.");
+    uint8_t constant = identifierConstant(parser, &parser->previous);
+    function(parser, TYPE_METHOD);
+    emitBytes(parser, OP_METHOD, constant);
+}
+
 static void classDeclaration(Parser* parser) {
     consume(parser, TOKEN_IDENTIFIER, "Expect class name.");
+    Token className = parser->previous;
     uint8_t nameConstant = identifierConstant(parser, &parser->previous);
     declareVariable(parser);
 
     emitBytes(parser, OP_CLASS, nameConstant);
     defineVariable(parser, nameConstant);
 
+    ClassCompiler classCompiler = { .enclosing = parser->currentClass };
+    parser->currentClass = &classCompiler;
+
+    // push class instance onto the top of the stack so the VM can find it when executing OP_METHOD
+    namedVariable(parser, className, false);
+
     consume(parser, TOKEN_LEFT_BRACE, "Expected '{' before class body.");
+    while (!check(parser, TOKEN_RIGHT_BRACE) && !check(parser, TOKEN_EOF)) {
+        method(parser);
+    }
     consume(parser, TOKEN_RIGHT_BRACE, "Expected '}' before class body.");
+    // pop class instance
+    emitByte(parser, OP_POP);
+
+    parser->currentClass = classCompiler.enclosing;
 }
 
 static void synchronise(Parser* parser) {
@@ -773,6 +797,14 @@ static void dot(Parser* parser, bool canAssign) {
     }
 }
 
+static void this(Parser* parser, UNUSED bool canAssign) {
+    if (!parser->currentClass) {
+        error(parser, "Can't use 'this' outside a class.");
+        return;
+    }
+    variable(parser, false);
+}
+
 ParseRule rules[] = {
         [TOKEN_LEFT_PAREN] = {grouping, call, PREC_CALL},
         [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
@@ -808,7 +840,7 @@ ParseRule rules[] = {
         [TOKEN_PRINT] = {NULL, NULL, PREC_NONE},
         [TOKEN_RETURN] = {NULL, NULL, PREC_NONE},
         [TOKEN_SUPER] = {NULL, NULL, PREC_NONE},
-        [TOKEN_THIS] = {NULL, NULL, PREC_NONE},
+        [TOKEN_THIS] = {this, NULL, PREC_NONE},
         [TOKEN_TRUE] = {literal, NULL, PREC_NONE},
         [TOKEN_VAR] = {NULL, NULL, PREC_NONE},
         [TOKEN_WHILE] = {NULL, NULL, PREC_NONE},
@@ -856,6 +888,10 @@ static void initCompiler(Parser* parser, Compiler* compiler, FunctionType type) 
             },
             .isCaptured = false,
     };
+    if (type != TYPE_FUNCTION) {
+        local.name.start = "this";
+        local.name.length = 4;
+    }
     writeLocal(parser->vm, compiler, &compiler->localArray, local);
 }
 
@@ -863,12 +899,14 @@ ObjFunction* compile(VM* vm, const char* source) {
     Scanner scanner;
     initScanner(&scanner, source);
 
-    Parser parser;
-    parser.scanner = &scanner;
-    parser.hadError = false;
-    parser.panicMode = false;
-    parser.vm = vm;
-    parser.compiler = NULL;
+    Parser parser = {
+        .scanner = &scanner,
+        .hadError = false,
+        .panicMode = false,
+        .vm = vm,
+        .compiler = NULL,
+        .currentClass = NULL
+    };
 
     Compiler compiler;
     initCompiler(&parser, &compiler, TYPE_SCRIPT);

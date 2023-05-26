@@ -8,6 +8,7 @@
 
 typedef enum {
     OBJ_NONE,
+    OBJ_BOUND_METHOD,
     OBJ_CLASS,
     OBJ_CLOSURE,
     OBJ_FUNCTION,
@@ -34,7 +35,7 @@ struct ObjUpvalue {
     Obj obj;
     // for open values (i.e. the closed variable is reachable elsewhere)
     Value* location;
-    // for closed upvalues (i.e. the closed variable can't be reached elsewhere and will probably get GC'd)
+    // for closed upvalues (i.e. the closed variable can't be reached elsewhere and will probably get GC'd when the closure is unreachable)
     Value closed;
     ObjUpvalue* next;
 };
@@ -65,6 +66,7 @@ struct ObjNative {
 struct ObjClass {
     Obj obj;
     ObjString* name;
+    Table methods;
 };
 
 struct ObjInstance {
@@ -73,10 +75,17 @@ struct ObjInstance {
     Table fields;
 };
 
+struct ObjBoundMethod {
+    Obj obj;
+    Value receiver;
+    ObjClosure* method;
+};
+
 ObjString* copyString(VM* vm, Compiler* compiler, const char* chars, uint32_t length);
 ObjString* takeString(VM* vm, Compiler* compiler, char* chars, uint32_t length);
 ObjUpvalue* newUpvalue(VM* vm, Compiler* compiler, Value* slot);
 ObjFunction* newFunction(VM* vm, Compiler* compiler);
+ObjBoundMethod* newBoundMethod(VM* vm, Compiler* compiler, Value receiver, ObjClosure* method);
 ObjClass* newClass(VM* vm, Compiler* compiler, ObjString* name);
 ObjClosure* newClosure(VM* vm, Compiler* compiler, ObjFunction* objFunction);
 ObjInstance* newInstance(VM* vm, Compiler* compiler, ObjClass* class);
@@ -96,11 +105,13 @@ static inline bool isObjType(Value value, ObjType type) {
 #define AS_STRING(value) ((ObjString*) AS_OBJ(value))
 #define AS_CSTRING(value) (AS_STRING(value)->chars)
 
+#define IS_BOUND_METHOD(value) isObjType(value, OBJ_BOUND_METHOD)
 #define IS_CLASS(value) isObjType(value, OBJ_CLASS)
 #define IS_CLOSURE(value) isObjType(value, OBJ_CLOSURE)
 #define IS_FUNCTION(value) isObjType(value, OBJ_FUNCTION)
 #define IS_INSTANCE(value) isObjType(value, OBJ_INSTANCE)
 #define IS_NATIVE(value) isObjType(value, OBJ_NATIVE)
+#define AS_BOUND_METHOD(value) ((ObjBoundMethod*) AS_OBJ(value))
 #define AS_CLASS(value) ((ObjClass*) AS_OBJ(value))
 #define AS_CLOSURE(value) ((ObjClosure*) AS_OBJ(value))
 #define AS_FUNCTION(value) ((ObjFunction*) AS_OBJ(value))

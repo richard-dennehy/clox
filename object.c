@@ -65,9 +65,17 @@ ObjFunction* newFunction(VM* vm, Compiler* compiler) {
     return function;
 }
 
+ObjBoundMethod* newBoundMethod(VM* vm, Compiler* compiler, Value receiver, ObjClosure* method) {
+    ObjBoundMethod* boundMethod = ALLOCATE_OBJ(ObjBoundMethod, OBJ_BOUND_METHOD);
+    boundMethod->receiver = receiver;
+    boundMethod->method = method;
+    return boundMethod;
+}
+
 ObjClass* newClass(VM* vm, Compiler* compiler, ObjString* name) {
     ObjClass* class = ALLOCATE_OBJ(ObjClass, OBJ_CLASS);
     class->name = name;
+    initTable(&class->methods);
     return class;
 }
 
@@ -109,6 +117,10 @@ static void printFunction(Printer* print, ObjFunction* function) {
 
 void printObject(Printer* print, Value value) {
     switch (OBJ_TYPE(value)) {
+        case OBJ_BOUND_METHOD: {
+            printFunction(print, AS_BOUND_METHOD(value)->method->function);
+            break;
+        }
         case OBJ_CLASS: {
             print("%s", AS_CLASS(value)->name->chars);
             break;
@@ -165,8 +177,14 @@ void freeObject(VM* vm, Obj* object) {
     object->type = OBJ_NONE;
 
     switch(type) {
+        case OBJ_BOUND_METHOD: {
+            VM_FREE(ObjBoundMethod, object);
+            break;
+        }
         case OBJ_CLASS: {
+            ObjClass* class = (ObjClass*) object;
             VM_FREE(ObjClass, object);
+            freeTable(vm, &class->methods);
             break;
         }
         case OBJ_CLOSURE: {

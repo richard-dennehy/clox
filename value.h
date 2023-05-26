@@ -19,6 +19,7 @@ typedef struct ObjNative ObjNative;
 typedef struct ObjUpvalue ObjUpvalue;
 typedef struct ObjClass ObjClass;
 typedef struct ObjInstance ObjInstance;
+typedef struct ObjBoundMethod ObjBoundMethod;
 
 typedef struct {
     ValueType type;

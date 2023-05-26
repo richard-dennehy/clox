@@ -625,6 +625,20 @@ int testClasses(void) {
     checkIntsEqual(printed, 3);
     checkStringsEqual(printLog[2], "3");
 
+    const char* simpleClassMethod =
+            "class Scone {"
+            "  topping(first, second) {"
+            "    print \"scone with \" + first + \" and \" + second;"
+            "  }"
+            "}"
+            ""
+            "var scone = Scone();"
+            "scone.topping(\"berries\", \"cream\");";
+
+    INTERPRET(simpleClassMethod);
+    checkIntsEqual(printed, 4);
+    checkStringsEqual(printLog[3], "scone with berries and cream");
+
     freeVM(&vm);
     freeMemory(&freeList);
     return err_code;
