@@ -75,7 +75,9 @@ void initVM(FreeList* freeList, VM* vm) {
     vm->greyStack = NULL;
     vm->bytesAllocated = 0;
     vm->nextGC = 1024 * 1024;
+    vm->initString = NULL;
     initValueArray(vm, NULL, &vm->stack);
+    vm->initString = copyString(vm, NULL, "init", 4);
 
     defineNative(vm, "clock", clockNative, 0);
     defineNative(vm, "sqrt", sqrtNative, 1);
@@ -85,6 +87,7 @@ void freeVM(VM* vm) {
     freeTable(vm, &vm->globals);
     freeTable(vm, &vm->strings);
     freeValueArray(vm, &vm->stack);
+    vm->initString = NULL;
     freeObjects(vm);
     // use system allocator as the custom allocator depends on this
     free(vm->greyStack);
@@ -123,6 +126,14 @@ static bool callValue(VM* vm, Value callee, uint8_t argumentCount) {
             case OBJ_CLASS: {
                 ObjClass* class = AS_CLASS(callee);
                 vm->stack.values[vm->stack.count - argumentCount - 1] = OBJ_VAL(newInstance(vm, NULL, class));
+                // invoke constructor, if it exists
+                Value initialiser;
+                if (tableGet(&class->methods, vm->initString, &initialiser)) {
+                    return call(vm, AS_CLOSURE(initialiser), argumentCount);
+                } else if (argumentCount != 0) {
+                    runtimeError(vm, "Expected 0 arguments but got %d.", argumentCount);
+                    return false;
+                }
                 return true;
             }
             case OBJ_CLOSURE:
@@ -550,4 +561,5 @@ void markRoots(VM* vm) {
     }
 
     markTable(vm, &vm->globals);
+    markObject(vm, (Obj*) vm->initString);
 }

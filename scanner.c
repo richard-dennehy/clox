@@ -72,6 +72,7 @@ static void skipWhitespace(Scanner* scanner) {
                 } else {
                     return;
                 }
+                break;
             default:
                 return;
         }

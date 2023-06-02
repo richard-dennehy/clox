@@ -28,6 +28,7 @@ struct VM {
     Obj** greyStack;
     size_t bytesAllocated;
     size_t nextGC;
+    ObjString* initString;
 };
 
 typedef enum {

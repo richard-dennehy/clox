@@ -42,6 +42,7 @@ typedef struct {
 
 typedef enum {
     TYPE_FUNCTION,
+    TYPE_INITIALISER,
     TYPE_METHOD,
     TYPE_SCRIPT,
 } FunctionType;
@@ -130,7 +131,14 @@ static void emitBytes(Parser* parser, uint8_t byte1, uint8_t byte2) {
 }
 
 static void emitReturn(Parser* parser) {
-    emitBytes(parser, OP_NIL, OP_RETURN);
+    if (parser->compiler->type == TYPE_INITIALISER) {
+        // implicit `return this` in initialisers
+        emitBytes(parser, OP_GET_LOCAL, 0);
+    } else {
+        emitByte(parser, OP_NIL);
+    }
+
+    emitByte(parser, OP_RETURN);
 }
 
 static void emitVariableWidth(Parser* parser, uint8_t byteOp, uint8_t longOp, uint32_t value) {
@@ -360,7 +368,13 @@ static void funDeclaration(Parser* parser) {
 static void method(Parser* parser) {
     consume(parser, TOKEN_IDENTIFIER, "Expect method name.");
     uint8_t constant = identifierConstant(parser, &parser->previous);
-    function(parser, TYPE_METHOD);
+
+    FunctionType type = TYPE_METHOD;
+    if (parser->previous.length == 4 && memcmp(parser->previous.start, "init", 4) == 0) {
+        type = TYPE_INITIALISER;
+    }
+
+    function(parser, type);
     emitBytes(parser, OP_METHOD, constant);
 }
 
@@ -545,9 +559,13 @@ static void returnStatement(Parser* parser) {
     if (parser->compiler->type == TYPE_SCRIPT) {
         error(parser, "Can't return from top level code.");
     }
+    // continue parsing in case of errors so the compiler isn't left in an invalid state
     if (match(parser, TOKEN_SEMICOLON)) {
         emitReturn(parser);
     } else {
+        if (parser->compiler->type == TYPE_INITIALISER) {
+            error(parser, "Can't return value from an initialiser.");
+        }
         expression(parser);
         consume(parser, TOKEN_SEMICOLON, "Expect ';' after return value.");
         emitByte(parser, OP_RETURN);

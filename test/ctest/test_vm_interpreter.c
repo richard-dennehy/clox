@@ -639,6 +639,27 @@ int testClasses(void) {
     checkIntsEqual(printed, 4);
     checkStringsEqual(printLog[3], "scone with berries and cream");
 
+    const char* classInitialiser =
+            "class CoffeeMaker {\n"
+            "  init(coffee) {\n"
+            "    this.coffee = coffee;\n"
+            "  }\n"
+            "\n"
+            "  brew() {\n"
+            "    print \"Enjoy your cup of \" + this.coffee;\n"
+            "\n"
+            "    // No reusing the grounds!\n"
+            "    this.coffee = nil;\n"
+            "  }\n"
+            "}\n"
+            "\n"
+            "var maker = CoffeeMaker(\"coffee and chicory\");\n"
+            "maker.brew();";
+
+    INTERPRET(classInitialiser);
+    checkIntsEqual(printed, 5);
+    checkStringsEqual(printLog[4], "Enjoy your cup of coffee and chicory");
+
     freeVM(&vm);
     freeMemory(&freeList);
     return err_code;
