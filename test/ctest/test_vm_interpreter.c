@@ -660,6 +660,24 @@ int testClasses(void) {
     checkIntsEqual(printed, 5);
     checkStringsEqual(printLog[4], "Enjoy your cup of coffee and chicory");
 
+    const char* invokingField =
+            "class Oops {\n"
+            "  init() {\n"
+            "    fun f() {\n"
+            "      print \"not a method\";\n"
+            "    }\n"
+            "\n"
+            "    this.field = f;\n"
+            "  }\n"
+            "}\n"
+            "\n"
+            "var oops = Oops();\n"
+            "oops.field();";
+
+    INTERPRET(invokingField);
+    checkIntsEqual(printed, 6);
+    checkStringsEqual(printLog[5], "not a method");
+
     freeVM(&vm);
     freeMemory(&freeList);
     return err_code;

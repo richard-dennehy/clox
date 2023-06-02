@@ -66,6 +66,7 @@ struct ObjNative {
 struct ObjClass {
     Obj obj;
     ObjString* name;
+    // TODO could probably make constructors faster by directly storing init method here
     Table methods;
 };
 

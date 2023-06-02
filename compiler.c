@@ -810,6 +810,11 @@ static void dot(Parser* parser, bool canAssign) {
     if (canAssign && match(parser, TOKEN_EQUAL)) {
         expression(parser);
         emitBytes(parser, OP_SET_PROPERTY, name);
+    } else if (match(parser, TOKEN_LEFT_PAREN)) {
+        // optimise for immediate method calls i.e. bytecode can be substantially simplified for accessing a method property and invoking it immediately, rather than assigning the property to a variable then invoking that
+        uint8_t argumentCount = argumentList(parser);
+        emitBytes(parser, OP_INVOKE, name);
+        emitByte(parser, argumentCount);
     } else {
         emitBytes(parser, OP_GET_PROPERTY, name);
     }

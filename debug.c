@@ -51,6 +51,15 @@ static uint32_t jumpInstruction(const char* name, Chunk* chunk, int32_t sign, ui
     return offset + 3;
 }
 
+static uint32_t invokeInstruction(const char* name, Chunk* chunk, uint32_t offset) {
+    uint8_t constant = chunk->code[offset + 1];
+    uint8_t argumentCount = chunk->code[offset + 2];
+    printf("%-16s (%d args) %4d '", name, argumentCount, constant);
+    printValue(printf, chunk->constants.values[constant]);
+    printf("'\n");
+    return offset + 3;
+}
+
 uint32_t disassembleInstruction(Chunk* chunk, uint32_t offset) {
     printf("%04d ", offset);
     if (offset > 0 && getLine(chunk, offset) == getLine(chunk, offset - 1)) {
@@ -157,6 +166,8 @@ uint32_t disassembleInstruction(Chunk* chunk, uint32_t offset) {
             return constantInstruction("OP_SET_PROPERTY", chunk, offset);
         case OP_METHOD:
             return constantInstruction("OP_METHOD", chunk, offset);
+        case OP_INVOKE:
+            return invokeInstruction("OP_INVOKE", chunk, offset);
         default:
             printf("Unknown opcode %d\n", instruction);
             return offset + 1;

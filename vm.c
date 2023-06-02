@@ -249,6 +249,35 @@ static bool isWide(OpCode op) {
            op == OP_DEFINE_GLOBAL_LONG || op == OP_GET_LOCAL_LONG || op == OP_SET_LOCAL_LONG;
 }
 
+static bool invokeFromClass(VM* vm, ObjClass* class, ObjString* name, uint8_t argumentCount) {
+    Value method;
+    if (!tableGet(&class->methods, name, &method)) {
+        runtimeError(vm, "Undefined property '%s'.", name->chars);
+        return false;
+    }
+    return call(vm, AS_CLOSURE(method), argumentCount);
+}
+
+static bool invoke(VM* vm, ObjString* name, uint8_t argumentCount) {
+    Value receiver = peek(vm, argumentCount);
+
+    if (!IS_INSTANCE(receiver)) {
+        runtimeError(vm, "Only instances have methods.");
+        return false;
+    }
+
+    ObjInstance* instance = AS_INSTANCE(receiver);
+
+    // something that looks like a method call could actually be invoking a function stored in a field
+    Value value;
+    if (tableGet(&instance->fields, name, &value)) {
+        vm->stack.values[vm->stack.count - argumentCount - 1] = value;
+        return callValue(vm, value, argumentCount);
+    }
+
+    return invokeFromClass(vm, instance->class, name, argumentCount);
+}
+
 static InterpretResult run(VM* vm) {
     CallFrame* frame = vm->frames + vm->frameCount - 1;
 
@@ -497,6 +526,15 @@ static InterpretResult run(VM* vm) {
             }
             case OP_METHOD: {
                 defineMethod(vm, READ_STRING(READ_BYTE));
+                break;
+            }
+            case OP_INVOKE: {
+                ObjString* method = READ_STRING(READ_BYTE);
+                uint8_t argumentCount = READ_BYTE;
+                if (!invoke(vm, method, argumentCount)) {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                frame = vm->frames + vm->frameCount - 1;
                 break;
             }
             case OP_RETURN: {
