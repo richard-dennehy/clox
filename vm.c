@@ -557,6 +557,16 @@ static InterpretResult run(VM* vm) {
                 }
                 break;
             }
+            case OP_SUPER_INVOKE: {
+                ObjString* method = READ_STRING(READ_BYTE);
+                uint8_t argumentCount = READ_BYTE;
+                ObjClass* superclass = AS_CLASS(pop(vm));
+                if (!invokeFromClass(vm, superclass, method, argumentCount)) {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                frame = vm->frames + vm->frameCount - 1;
+                break;
+            }
             case OP_RETURN: {
                 Value result = pop(vm);
                 closeUpvalues(vm, vm->stack.values + frame->base);

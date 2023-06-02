@@ -29,6 +29,17 @@ void freeValueArray(VM* vm, ValueArray* array) {
 }
 
 void printValue(Printer* print, Value value) {
+#ifdef NAN_BOXING
+    if (IS_BOOL(value)) {
+        print(AS_BOOL(value) ? "true" : "false");
+    } else if (IS_NIL(value)) {
+        print("nil");
+    } else if (IS_NUMBER(value)) {
+        print("%g", AS_NUMBER(value));
+    } else if (IS_OBJ(value)) {
+        printObject(print, value);
+    }
+#else
     switch (value.type) {
         case VAL_BOOL:
             print(AS_BOOL(value) ? "true" : "false");
@@ -43,9 +54,18 @@ void printValue(Printer* print, Value value) {
             printObject(print, value);
             break;
     }
+#endif
 }
 
 bool valuesEqual(Value a, Value b) {
+#ifdef NAN_BOXING
+    // NaN != NaN
+    if (IS_NUMBER(a) && IS_NUMBER(b)) {
+        return AS_NUMBER(a) == AS_NUMBER(b);
+    } else {
+        return a == b;
+    }
+#else
     if (a.type != b.type) return false;
     switch (a.type) {
         case VAL_BOOL:
@@ -59,6 +79,8 @@ bool valuesEqual(Value a, Value b) {
         default:
             assert(!"Missing switch case");
     }
+    return false; // ??? the switch above always returns (or exits)
+#endif
 }
 
 void markValue(VM* vm, Value value) {

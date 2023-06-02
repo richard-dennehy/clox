@@ -872,8 +872,15 @@ static void super(Parser* parser, UNUSED bool canAssign) {
     uint8_t name = identifierConstant(parser, &parser->previous);
 
     namedVariable(parser, syntheticToken("this"), false);
-    namedVariable(parser, syntheticToken("super"), false);
-    emitBytes(parser, OP_GET_SUPER, name);
+    if (match(parser, TOKEN_LEFT_PAREN)) {
+        uint8_t argumentCount = argumentList(parser);
+        namedVariable(parser, syntheticToken("super"), false);
+        emitBytes(parser, OP_SUPER_INVOKE, name);
+        emitByte(parser, argumentCount);
+    } else {
+        namedVariable(parser, syntheticToken("super"), false);
+        emitBytes(parser, OP_GET_SUPER, name);
+    }
 }
 
 ParseRule rules[] = {

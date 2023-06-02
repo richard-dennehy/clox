@@ -211,7 +211,7 @@ int testStrings(void) {
     Value string;
     ObjString* key = copyString(&vm, NULL, "string", strlen("string"));
     checkTrue(tableGet(&vm.globals, key, &string));
-    checkIntsEqual(string.type, VAL_OBJ);
+    checkTrue(IS_OBJ(string));
     checkIntsEqual(AS_OBJ(string)->type, OBJ_STRING);
     checkIntsEqual(AS_STRING(string)->length, 6);
 
@@ -250,17 +250,17 @@ int testGlobals(void) {
     INTERPRET("var uninitialisedGlobal;");
     ObjString* key = copyString(&vm, NULL, "uninitialisedGlobal", strlen("uninitialisedGlobal"));
     checkTrue(tableGet(&vm.globals, key, &global));
-    checkIntsEqual(global.type, VAL_NIL);
+    checkTrue(IS_NIL(global));
 
     INTERPRET("uninitialisedGlobal = 5;");
     checkTrue(tableGet(&vm.globals, key, &global));
-    checkIntsEqual(global.type, VAL_NUMBER);
+    checkTrue(IS_NUMBER(global));
     checkIntsEqual(AS_NUMBER(global), 5);
 
     INTERPRET("var initialisedGlobal = false;");
     key = copyString(&vm, NULL, "initialisedGlobal", strlen("initialisedGlobal"));
     checkTrue(tableGet(&vm.globals, key, &global));
-    checkIntsEqual(global.type, VAL_BOOL);
+    checkTrue(IS_BOOL(global));
     checkIntsEqual(AS_BOOL(global), false);
 
     char* chapterExample = "var breakfast = \"beignets\";\n"
@@ -472,7 +472,7 @@ int testFunctions(void) {
     Value time;
     ObjString* key = copyString(&vm, NULL, "now", strlen("now"));
     checkTrue(tableGet(&vm.globals, key, &time));
-    checkIntsEqual(time.type, VAL_NUMBER);
+    checkTrue(IS_NUMBER(time));
     // not checking value as it's dependent on how fast the test runs
 
     INTERPRET("print clock;");

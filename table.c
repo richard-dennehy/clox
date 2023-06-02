@@ -14,7 +14,8 @@ void freeTable(VM* vm, Table* table) {
 }
 
 static Entry* findEntry(Entry* entries, uint32_t capacity, ObjString* key) {
-    uint32_t index = key->hash % capacity;
+    // modulus, taking advantage of the capacity always being a power of 2
+    uint32_t index = key->hash & (capacity - 1);
     Entry* tombstone = NULL;
     // open addressing - entry may not be in the expected location
     for (;;) {
@@ -30,7 +31,7 @@ static Entry* findEntry(Entry* entries, uint32_t capacity, ObjString* key) {
             return entry;
         }
 
-        index = (index + 1) % capacity;
+        index = (index + 1) & (capacity - 1);
     }
 }
 
@@ -108,7 +109,7 @@ bool tableDelete(Table* table, ObjString* key) {
 ObjString* tableFindString(Table* table, const char* chars, uint32_t length, uint32_t hash) {
     if (!table->count) return false;
 
-    uint32_t index = hash % table->capacity;
+    uint32_t index = hash & (table->capacity - 1);
     for (;;) {
         Entry* entry = table->entries + index;
         if (!entry->key) {
@@ -119,7 +120,7 @@ ObjString* tableFindString(Table* table, const char* chars, uint32_t length, uin
             return entry->key;
         }
 
-        index = (index + 1) % table->capacity;
+        index = (index + 1) & (table->capacity - 1);
     }
 }
 
