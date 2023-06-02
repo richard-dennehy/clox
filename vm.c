@@ -537,6 +537,26 @@ static InterpretResult run(VM* vm) {
                 frame = vm->frames + vm->frameCount - 1;
                 break;
             }
+            case OP_INHERIT: {
+                Value superclass = peek(vm, 1);
+                if (!IS_CLASS(superclass)) {
+                    runtimeError(vm, "Superclass must be a class.");
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                ObjClass* subclass = AS_CLASS(peek(vm, 0));
+                tableAddAll(vm, NULL, &AS_CLASS(superclass)->methods, &subclass->methods);
+                pop(vm); // subclass
+                break;
+            }
+            case OP_GET_SUPER: {
+                ObjString* name = READ_STRING(READ_BYTE);
+                ObjClass* superclass = AS_CLASS(pop(vm));
+
+                if (!bindMethod(vm, superclass, name)) {
+                    return INTERPRET_RUNTIME_ERROR;
+                }
+                break;
+            }
             case OP_RETURN: {
                 Value result = pop(vm);
                 closeUpvalues(vm, vm->stack.values + frame->base);

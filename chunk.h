@@ -48,6 +48,8 @@ typedef enum {
     OP_SET_PROPERTY,
     OP_METHOD,
     OP_INVOKE,
+    OP_INHERIT,
+    OP_GET_SUPER,
 } OpCode;
 
 typedef struct Line {

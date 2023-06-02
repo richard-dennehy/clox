@@ -590,6 +590,7 @@ int testClosures(void) {
     return err_code;
 }
 
+// TODO add tests for error cases
 int testClasses(void) {
     int err_code = TEST_SUCCEEDED;
     FreeList freeList;
@@ -683,7 +684,95 @@ int testClasses(void) {
     return err_code;
 }
 
+int testInheritance(void) {
+    int err_code = TEST_SUCCEEDED;
+    FreeList freeList;
+    VM vm;
+    initMemory(&freeList, 256 * 1024);
+    initVM(&freeList, &vm);
+    resetPrintLog();
+    vm.print = fakePrintf;
+
+    const char* basicInheritance =
+            "class Doughnut {\n"
+            "  cook() {\n"
+            "    print \"Dunk in the fryer.\";\n"
+            "  }\n"
+            "}\n"
+            "\n"
+            "class Cruller < Doughnut {\n"
+            "  finish() {\n"
+            "    print \"Glaze with icing.\";\n"
+            "  }\n"
+            "}"
+            "Cruller().cook();";
+
+    INTERPRET(basicInheritance);
+    checkIntsEqual(printed, 1);
+    checkStringsEqual(printLog[0], "Dunk in the fryer.");
+
+    const char* mustInheritFromAClass =
+            "var NotClass = \"So not a class\";\n"
+            "class OhNo < NotClass {}";
+
+    assert(interpret(&vm, mustInheritFromAClass) == INTERPRET_RUNTIME_ERROR);
+
+    const char* cannotInheritFromSelf =
+            "class Circular < Circular {}";
+
+    assert(interpret(&vm, cannotInheritFromSelf) == INTERPRET_COMPILE_ERROR);
+
+    const char* superResolution =
+            "class A {\n"
+            "  method() {\n"
+            "    print \"A method\";\n"
+            "  }\n"
+            "}\n"
+            "\n"
+            "class B < A {\n"
+            "  method() {\n"
+            "    print \"B method\";\n"
+            "  }\n"
+            "\n"
+            "  test() {\n"
+            "    super.method();\n"
+            "  }\n"
+            "}\n"
+            "\n"
+            "class C < B {}\n"
+            "\n"
+            "C().test();";
+
+    INTERPRET(superResolution);
+    checkIntsEqual(printed, 2);
+    checkStringsEqual(printLog[1], "A method");
+
+    const char* superReference =
+            "class A {\n"
+            "  method() {\n"
+            "    print \"A\";\n"
+            "  }\n"
+            "}\n"
+            "\n"
+            "class B < A {\n"
+            "  method() {\n"
+            "    var closure = super.method;\n"
+            "    closure(); // Prints \"A\".\n"
+            "  }\n"
+            "}\n"
+            "B().method();";
+
+    INTERPRET(superReference);
+    checkIntsEqual(printed, 3);
+    checkStringsEqual(printLog[2], "A");
+
+    freeVM(&vm);
+    freeMemory(&freeList);
+    return err_code;
+}
+
 int main(void) {
     return testGlobals() | testLocals() | testControlFlow() | testVmStack() | testVmArithmetic() | testNil() |
-           testBools() | testComparisons() | testStrings() | testFunctions() | testClosures() | testClasses();
+           testBools() | testComparisons() | testStrings() | testFunctions() | testClosures() | testClasses() |
+           testInheritance();
 }

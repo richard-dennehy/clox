@@ -378,6 +378,13 @@ static void method(Parser* parser) {
     emitBytes(parser, OP_METHOD, constant);
 }
 
+static Token syntheticToken(const char* text) {
+    return (Token) {
+            .start = text,
+            .length = (uint32_t) strlen(text)
+    };
+}
+
 static void classDeclaration(Parser* parser) {
     consume(parser, TOKEN_IDENTIFIER, "Expect class name.");
     Token className = parser->previous;
@@ -387,8 +394,28 @@ static void classDeclaration(Parser* parser) {
     emitBytes(parser, OP_CLASS, nameConstant);
     defineVariable(parser, nameConstant);
 
-    ClassCompiler classCompiler = { .enclosing = parser->currentClass };
+    ClassCompiler classCompiler = {
+            .enclosing = parser->currentClass,
+            .hasSuperclass = false
+    };
     parser->currentClass = &classCompiler;
+
+    if (match(parser, TOKEN_LESS_THAN)) {
+        consume(parser, TOKEN_IDENTIFIER, "Expect superclass name.");
+        namedVariable(parser, parser->previous, false);
+
+        if (identifiersEqual(&className, &parser->previous)) {
+            error(parser, "A class can't inherit from itself");
+        }
+
+        beginScope(parser);
+        addLocal(parser, syntheticToken("super"));
+        defineVariable(parser, 0);
+
+        namedVariable(parser, className, false);
+        emitByte(parser, OP_INHERIT);
+        classCompiler.hasSuperclass = true;
+    }
 
     // push class instance onto the top of the stack so the VM can find it when executing OP_METHOD
     namedVariable(parser, className, false);
@@ -400,6 +427,10 @@ static void classDeclaration(Parser* parser) {
     consume(parser, TOKEN_RIGHT_BRACE, "Expected '}' before class body.");
     // pop class instance
     emitByte(parser, OP_POP);
+
+    if (parser->currentClass->hasSuperclass) {
+        endScope(parser);
+    }
 
     parser->currentClass = classCompiler.enclosing;
 }
@@ -598,7 +629,8 @@ static void number(Parser* parser, UNUSED bool canAssign) {
 }
 
 static void string(Parser* parser, UNUSED bool canAssign) {
-    Value value = OBJ_VAL(copyString(parser->vm, parser->compiler, parser->previous.start + 1, parser->previous.length - 2));
+    Value value = OBJ_VAL(
+            copyString(parser->vm, parser->compiler, parser->previous.start + 1, parser->previous.length - 2));
     emitConstant(parser, value);
 }
 
@@ -828,6 +860,22 @@ static void this(Parser* parser, UNUSED bool canAssign) {
     variable(parser, false);
 }
 
+static void super(Parser* parser, UNUSED bool canAssign) {
+    if (!parser->currentClass) {
+        error(parser, "Can't use 'super' outside of a class.");
+    } else if (!parser->currentClass->hasSuperclass) {
+        error(parser, "Can't use 'super' in a class with no superclass.");
+    }
+
+    consume(parser, TOKEN_DOT, "Expect '.' after 'super'.");
+    consume(parser, TOKEN_IDENTIFIER, "Expect superclass method name.");
+    uint8_t name = identifierConstant(parser, &parser->previous);
+
+    namedVariable(parser, syntheticToken("this"), false);
+    namedVariable(parser, syntheticToken("super"), false);
+    emitBytes(parser, OP_GET_SUPER, name);
+}
+
 ParseRule rules[] = {
         [TOKEN_LEFT_PAREN] = {grouping, call, PREC_CALL},
         [TOKEN_RIGHT_PAREN] = {NULL, NULL, PREC_NONE},
@@ -862,7 +910,7 @@ ParseRule rules[] = {
         [TOKEN_OR] = {NULL, or, PREC_NONE},
         [TOKEN_PRINT] = {NULL, NULL, PREC_NONE},
         [TOKEN_RETURN] = {NULL, NULL, PREC_NONE},
-        [TOKEN_SUPER] = {NULL, NULL, PREC_NONE},
+        [TOKEN_SUPER] = {super, NULL, PREC_NONE},
         [TOKEN_THIS] = {this, NULL, PREC_NONE},
         [TOKEN_TRUE] = {literal, NULL, PREC_NONE},
         [TOKEN_VAR] = {NULL, NULL, PREC_NONE},
@@ -900,7 +948,8 @@ static void initCompiler(Parser* parser, Compiler* compiler, FunctionType type) 
 
     parser->compiler = compiler;
     if (type != TYPE_SCRIPT) {
-        compiler->function->name = copyString(parser->vm, parser->compiler, parser->previous.start, parser->previous.length);
+        compiler->function->name = copyString(parser->vm, parser->compiler, parser->previous.start,
+                                              parser->previous.length);
     }
 
     Local local = {
@@ -923,12 +972,12 @@ ObjFunction* compile(VM* vm, const char* source) {
     initScanner(&scanner, source);
 
     Parser parser = {
-        .scanner = &scanner,
-        .hadError = false,
-        .panicMode = false,
-        .vm = vm,
-        .compiler = NULL,
-        .currentClass = NULL
+            .scanner = &scanner,
+            .hadError = false,
+            .panicMode = false,
+            .vm = vm,
+            .compiler = NULL,
+            .currentClass = NULL
     };
 
     Compiler compiler;
